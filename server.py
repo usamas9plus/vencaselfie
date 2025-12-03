@@ -202,7 +202,18 @@ def submit_liveness():
             sessions[session_id]['status'] = 'COMPLETED'
             sessions[session_id]['event_session_id'] = event_session_id
             print(f"Session {session_id} COMPLETED with Event ID: {event_session_id}")
+        else:
+            # Vercel Workaround: Create skeleton session if missing
+            print(f"Session {session_id} not found during submission, creating skeleton.")
+            sessions[session_id] = {
+                "session_id": session_id,
+                "status": 'COMPLETED',
+                "event_session_id": event_session_id,
+                "created_at": time.time(),
+                "is_skeleton": True
+            }
             
+        save_sessions(sessions)
         return jsonify({"success": True, "message": "Liveness submitted"})
         
     except Exception as e:
