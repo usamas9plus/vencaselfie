@@ -74,7 +74,10 @@ def create_session():
         return b64_response
         
     except Exception as e:
-        return jsonify({"success": False, "message": str(e)}), 500
+        # Return base64 encoded error so extension can read it
+        error_json = json.dumps({"success": False, "message": str(e)})
+        b64_error = base64.b64encode(error_json.encode('utf-8')).decode('utf-8')
+        return b64_error, 500
 
 @app.route('/api/get_selfie_data.php', methods=['POST'])
 def get_selfie_data():
@@ -127,7 +130,10 @@ def get_selfie_data():
         return b64_response
         
     except Exception as e:
-        return jsonify({"success": False, "message": str(e)}), 500
+        # Return base64 encoded error so extension can read it
+        error_json = json.dumps({"success": False, "message": str(e)})
+        b64_error = base64.b64encode(error_json.encode('utf-8')).decode('utf-8')
+        return b64_error, 500
 
 @app.route('/api/update_status.php', methods=['POST'])
 def update_status():
@@ -152,7 +158,10 @@ def update_status():
         return jsonify({"success": True, "message": "Status updated"})
         
     except Exception as e:
-        return jsonify({"success": False, "message": str(e)}), 500
+        # Return base64 encoded error so extension can read it
+        error_json = json.dumps({"success": False, "message": str(e)})
+        b64_error = base64.b64encode(error_json.encode('utf-8')).decode('utf-8')
+        return b64_error, 500
 
 @app.route('/api/submit_liveness.php', methods=['POST'])
 def submit_liveness():
@@ -178,7 +187,10 @@ def submit_liveness():
         return jsonify({"success": True, "message": "Liveness submitted"})
         
     except Exception as e:
-        return jsonify({"success": False, "message": str(e)}), 500
+        # Return base64 encoded error so extension can read it
+        error_json = json.dumps({"success": False, "message": str(e)})
+        b64_error = base64.b64encode(error_json.encode('utf-8')).decode('utf-8')
+        return b64_error, 500
 
 @app.route('/api/check_session_status', methods=['POST'])
 def check_session_status():
@@ -216,7 +228,10 @@ def check_session_status():
         return b64_response
         
     except Exception as e:
-        return jsonify({"success": False, "message": str(e)}), 500
+        # Return base64 encoded error so extension can read it
+        error_json = json.dumps({"success": False, "message": str(e)})
+        b64_error = base64.b64encode(error_json.encode('utf-8')).decode('utf-8')
+        return b64_error, 500
 
 if __name__ == '__main__':
     print("Starting Txyber Local Server on port 5000...")
