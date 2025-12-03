@@ -2,16 +2,12 @@ from flask import Flask, request, jsonify, send_from_directory
 import time
 import uuid
 import os
-
 app = Flask(__name__)
-
 # In-memory storage for sessions
 sessions = {}
-
 @app.route('/')
 def index():
     return "Txyber Local Server Running"
-
 @app.route('/selfie/')
 def selfie_page():
     # This page exists solely to trigger the Client Extension's background script
@@ -24,7 +20,6 @@ def selfie_page():
     </body>
     </html>
     """
-
 @app.route('/api/create_session', methods=['POST'])
 def create_session():
     try:
@@ -78,7 +73,6 @@ def create_session():
         error_json = json.dumps({"success": False, "message": str(e)})
         b64_error = base64.b64encode(error_json.encode('utf-8')).decode('utf-8')
         return b64_error, 500
-
 @app.route('/api/get_selfie_data.php', methods=['POST'])
 def get_selfie_data():
     try:
@@ -134,7 +128,6 @@ def get_selfie_data():
         error_json = json.dumps({"success": False, "message": str(e)})
         b64_error = base64.b64encode(error_json.encode('utf-8')).decode('utf-8')
         return b64_error, 500
-
 @app.route('/api/update_status.php', methods=['POST'])
 def update_status():
     try:
@@ -154,6 +147,10 @@ def update_status():
         if session_id in sessions:
             sessions[session_id]['status'] = new_status
             print(f"Session {session_id} status updated to {new_status}")
+        else:
+            print(f"Session {session_id} not found for status update")
+            # We return success anyway to prevent client errors if session is lost (e.g. server restart)
+            return jsonify({"success": True, "message": "Session not found but ignored"})
             
         return jsonify({"success": True, "message": "Status updated"})
         
@@ -162,7 +159,6 @@ def update_status():
         error_json = json.dumps({"success": False, "message": str(e)})
         b64_error = base64.b64encode(error_json.encode('utf-8')).decode('utf-8')
         return b64_error, 500
-
 @app.route('/api/submit_liveness.php', methods=['POST'])
 def submit_liveness():
     try:
@@ -191,7 +187,6 @@ def submit_liveness():
         error_json = json.dumps({"success": False, "message": str(e)})
         b64_error = base64.b64encode(error_json.encode('utf-8')).decode('utf-8')
         return b64_error, 500
-
 @app.route('/api/check_session_status', methods=['POST'])
 def check_session_status():
     try:
@@ -232,7 +227,6 @@ def check_session_status():
         error_json = json.dumps({"success": False, "message": str(e)})
         b64_error = base64.b64encode(error_json.encode('utf-8')).decode('utf-8')
         return b64_error, 500
-
 if __name__ == '__main__':
     print("Starting Txyber Local Server on port 5000...")
     app.run(host='0.0.0.0', port=5000)
