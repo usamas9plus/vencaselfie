@@ -3,8 +3,25 @@ import time
 import uuid
 import os
 app = Flask(__name__)
-# In-memory storage for sessions
-sessions = {}
+app = Flask(__name__)
+# Persistence Helper for Vercel (using /tmp)
+SESSION_FILE = '/tmp/sessions.json'
+def load_sessions():
+    if os.path.exists(SESSION_FILE):
+        try:
+            with open(SESSION_FILE, 'r') as f:
+                return json.load(f)
+        except:
+            return {}
+    return {}
+def save_sessions(sessions_data):
+    try:
+        with open(SESSION_FILE, 'w') as f:
+            json.dump(sessions_data, f)
+    except Exception as e:
+        print(f"Error saving sessions: {e}")
+# Initialize sessions from file
+sessions = load_sessions()
 @app.route('/')
 def index():
     return "Txyber Local Server Running"
