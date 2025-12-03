@@ -24,7 +24,15 @@ def save_sessions(sessions_data):
 sessions = load_sessions()
 @app.route('/')
 def index():
-    return "Txyber Local Server Running"
+    return "Txyber Local Server Running. Visit /version to check version."
+@app.route('/version')
+def version():
+    # This endpoint helps verify if the deployment was successful
+    return jsonify({
+        "version": "1.0.5", 
+        "skeleton_support": True,
+        "timestamp": time.time()
+    })
 @app.route('/selfie/')
 def selfie_page():
     # This page exists solely to trigger the Client Extension's background script
