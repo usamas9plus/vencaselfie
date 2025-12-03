@@ -165,10 +165,16 @@ def update_status():
             sessions[session_id]['status'] = new_status
             print(f"Session {session_id} status updated to {new_status}")
         else:
-            print(f"Session {session_id} not found for status update")
-            # We return success anyway to prevent client errors if session is lost (e.g. server restart)
-            return jsonify({"success": True, "message": "Session not found but ignored"})
+            # Vercel Workaround: Create skeleton session if missing
+            print(f"Session {session_id} not found, creating skeleton for status update.")
+            sessions[session_id] = {
+                "session_id": session_id,
+                "status": new_status,
+                "created_at": time.time(),
+                "is_skeleton": True
+            }
             
+        save_sessions(sessions)
         return jsonify({"success": True, "message": "Status updated"})
         
     except Exception as e:
