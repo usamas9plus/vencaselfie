@@ -2,12 +2,16 @@ from flask import Flask, request, jsonify, send_from_directory
 import time
 import uuid
 import os
+
 app = Flask(__name__)
+
 # In-memory storage for sessions
 sessions = {}
+
 @app.route('/')
 def index():
     return "Txyber Local Server Running"
+
 @app.route('/selfie/')
 def selfie_page():
     # This page exists solely to trigger the Client Extension's background script
@@ -20,6 +24,7 @@ def selfie_page():
     </body>
     </html>
     """
+
 @app.route('/api/create_session', methods=['POST'])
 def create_session():
     try:
@@ -55,15 +60,22 @@ def create_session():
         # The Client Extension listens for /selfie/?session=...
         client_link = f"{server_url}/selfie/?session={session_id}"
         
-        return jsonify({
+        # Construct response data
+        response_data = {
             "success": True,
             "session_id": session_id,
             "client_selfie_link": client_link,
             "message": "Session created successfully"
-        })
+        }
+        
+        # Return base64 encoded JSON (as expected by Admin Extension)
+        json_response = json.dumps(response_data)
+        b64_response = base64.b64encode(json_response.encode('utf-8')).decode('utf-8')
+        return b64_response
         
     except Exception as e:
         return jsonify({"success": False, "message": str(e)}), 500
+
 @app.route('/api/get_selfie_data.php', methods=['POST'])
 def get_selfie_data():
     try:
@@ -116,6 +128,7 @@ def get_selfie_data():
         
     except Exception as e:
         return jsonify({"success": False, "message": str(e)}), 500
+
 @app.route('/api/update_status.php', methods=['POST'])
 def update_status():
     try:
@@ -140,6 +153,7 @@ def update_status():
         
     except Exception as e:
         return jsonify({"success": False, "message": str(e)}), 500
+
 @app.route('/api/submit_liveness.php', methods=['POST'])
 def submit_liveness():
     try:
@@ -165,6 +179,7 @@ def submit_liveness():
         
     except Exception as e:
         return jsonify({"success": False, "message": str(e)}), 500
+
 @app.route('/api/check_session_status', methods=['POST'])
 def check_session_status():
     try:
@@ -202,6 +217,7 @@ def check_session_status():
         
     except Exception as e:
         return jsonify({"success": False, "message": str(e)}), 500
+
 if __name__ == '__main__':
     print("Starting Txyber Local Server on port 5000...")
     app.run(host='0.0.0.0', port=5000)
