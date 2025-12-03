@@ -4,6 +4,13 @@ import uuid
 import os
 app = Flask(__name__)
 app = Flask(__name__)
+# Enable CORS for all routes
+@app.after_request
+def after_request(response):
+    response.headers.add('Access-Control-Allow-Origin', '*')
+    response.headers.add('Access-Control-Allow-Headers', 'Content-Type,Authorization')
+    response.headers.add('Access-Control-Allow-Methods', 'GET,PUT,POST,DELETE,OPTIONS')
+    return response
 # Persistence Helper for Vercel (using /tmp)
 SESSION_FILE = '/tmp/sessions.json'
 def load_sessions():
