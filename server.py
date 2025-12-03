@@ -135,7 +135,9 @@ def get_selfie_data():
                 "user_id": session['user_id'],
                 "transaction_id": session['transaction_id'],
                 "proxy_host": session['proxy_host'],
-                "status": session['status']
+                "status": session['status'],
+                # CRITICAL: Tell client which server to use (this one!)
+                "server_url": session.get('server_url', request.host_url.rstrip('/'))
             }
         }
         
