@@ -3,7 +3,6 @@ import time
 import uuid
 import os
 app = Flask(__name__)
-app = Flask(__name__)
 # Persistence Helper for Vercel (using /tmp)
 SESSION_FILE = '/tmp/sessions.json'
 def load_sessions():
@@ -330,5 +329,3 @@ def check_session_status():
 if __name__ == '__main__':
     print("Starting Txyber Local Server on port 5000...")
     app.run(host='0.0.0.0', port=5000)
-
-
