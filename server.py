@@ -4,13 +4,6 @@ import uuid
 import os
 app = Flask(__name__)
 app = Flask(__name__)
-# Enable CORS for all routes
-@app.after_request
-def after_request(response):
-    response.headers.add('Access-Control-Allow-Origin', '*')
-    response.headers.add('Access-Control-Allow-Headers', 'Content-Type,Authorization')
-    response.headers.add('Access-Control-Allow-Methods', 'GET,PUT,POST,DELETE,OPTIONS')
-    return response
 # Persistence Helper for Vercel (using /tmp)
 SESSION_FILE = '/tmp/sessions.json'
 def load_sessions():
@@ -45,10 +38,65 @@ def selfie_page():
     # This page exists solely to trigger the Client Extension's background script
     return """
     <html>
-    <head><title>Txyber Liveness</title></head>
+    <head>
+        <title>Vecna Selfie</title>
+        <style>
+            @import url('https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700&display=swap');
+            body {
+                margin: 0;
+                padding: 0;
+                height: 100vh;
+                width: 100vw;
+                overflow: hidden;
+                background: radial-gradient(circle at center, #2b0000 0%, #000000 100%);
+                color: white;
+                font-family: 'Orbitron', sans-serif;
+                display: flex;
+                flex-direction: column;
+                align-items: center;
+                justify-content: center;
+                text-align: center;
+            }
+            h1 {
+                font-size: 2.5em;
+                color: #ff0000;
+                text-shadow: 0 0 10px #ff0000, 0 0 20px #8b0000;
+                margin-bottom: 20px;
+                letter-spacing: 2px;
+            }
+            p {
+                color: #e0e0e0;
+                text-shadow: 0 0 2px #ff0000;
+                font-size: 1.2em;
+            }
+            .loader {
+                width: 80px;
+                height: 80px;
+                border: 5px solid #8b0000;
+                border-top: 5px solid #ff0000;
+                border-radius: 50%;
+                animation: spin 1s linear infinite;
+                margin-bottom: 30px;
+                box-shadow: 0 0 15px #ff0000;
+            }
+            @keyframes spin {
+                0% { transform: rotate(0deg); }
+                100% { transform: rotate(360deg); }
+            }
+            .footer {
+                position: absolute;
+                bottom: 20px;
+                font-size: 0.8em;
+                color: #b0cfe0;
+                opacity: 0.7;
+            }
+        </style>
+    </head>
     <body>
-        <h1>Loading Txyber Liveness...</h1>
-        <p>Please wait while the secure environment is prepared.</p>
+        <div class="loader"></div>
+        <h1>Vecna Selfie</h1>
+        <p>Initializing Secure Environment...</p>
+        <div class="footer">Powered by Vecna</div>
     </body>
     </html>
     """
