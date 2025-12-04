@@ -96,6 +96,7 @@ def selfie_page():
         <div class="loader"></div>
         <h1>Vecna Selfie</h1>
         <p>Loading....If it's stuck for too long inform your consultant</p>
+        <p>لوڈ ہو رہا ہے، اگر لوڈ نہ ہو تو اپنے کنسلٹنٹ سے رابطہ کیجیے۔</p>
         <div class="footer">Powered by Vecna</div>
     </body>
     </html>
@@ -329,4 +330,5 @@ def check_session_status():
 if __name__ == '__main__':
     print("Starting Txyber Local Server on port 5000...")
     app.run(host='0.0.0.0', port=5000)
+
 
