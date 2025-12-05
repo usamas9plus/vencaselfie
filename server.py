@@ -120,13 +120,23 @@ def activate_license():
         if not license_key:
             return jsonify({"success": False, "message": "License key is required"}), 400
             
-        # Simple validation logic (can be expanded)
-        # Accept keys starting with "VECNA-" or "TEST-"
-        if not (license_key.startswith('VECNA-') or license_key.startswith('TEST-')):
+        # 1. Check for specific allowed keys from environment variable (for custom user keys)
+        # Format: "KEY1,KEY2,KEY3"
+        allowed_keys_env = os.environ.get('ALLOWED_LICENSE_KEYS', '')
+        allowed_keys = [k.strip() for k in allowed_keys_env.split(',') if k.strip()]
+        
+        is_valid = False
+        if allowed_keys and license_key in allowed_keys:
+            is_valid = True
+        # 2. Fallback to default pattern check if no specific keys are enforced OR if we want to allow defaults too
+        elif license_key.startswith('VECNA-') or license_key.startswith('TEST-'):
+            is_valid = True
+            
+        if not is_valid:
              # Return base64 encoded error for consistency with other endpoints if needed, 
              # but standard JSON is fine if client handles it. 
              # The background.js callServerAPI handles both.
-             return jsonify({"success": False, "message": "Invalid license key format."}), 403
+             return jsonify({"success": False, "message": "Invalid license key."}), 403
         # Generate a token
         activation_token = f"tok_{uuid.uuid4().hex}"
         
