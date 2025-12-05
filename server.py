@@ -23,7 +23,7 @@ def save_sessions(sessions_data):
 sessions = load_sessions()
 @app.route('/')
 def index():
-    return "Txyber Local Server Running. Visit /version to check version."
+    return "Vecna Server Running. Visit /version to check version."
 @app.route('/version')
 def version():
     # This endpoint helps verify if the deployment was successful
@@ -327,7 +327,7 @@ def check_session_status():
         b64_error = base64.b64encode(error_json.encode('utf-8')).decode('utf-8')
         return b64_error, 500
 if __name__ == '__main__':
-    print("Starting Txyber Local Server on port 5000...")
+    print("Starting Vecna Server on port 5000...")
     app.run(host='0.0.0.0', port=5000)
 
 
