@@ -3,6 +3,7 @@ import time
 import uuid
 import os
 app = Flask(__name__)
+app = Flask(__name__)
 # Persistence Helper for Vercel (using /tmp)
 SESSION_FILE = '/tmp/sessions.json'
 def load_sessions():
@@ -94,12 +95,59 @@ def selfie_page():
     <body>
         <div class="loader"></div>
         <h1>Vecna Selfie</h1>
-        <p>Loading....If it's stuck for too long inform your consultant</p>
-        <p>لوڈ ہو رہا ہے، اگر لوڈ نہ ہو تو اپنے کنسلٹنٹ سے رابطہ کیجیے۔</p>
+        <p>Initializing Secure Environment...</p>
         <div class="footer">Powered by Vecna</div>
     </body>
     </html>
     """
+@app.route('/api/activate_license', methods=['POST'])
+def activate_license():
+    try:
+        import base64
+        import json
+        
+        # Handle base64 encoded payload if sent that way
+        try:
+            raw_data = request.data.decode('utf-8')
+            decoded_json = base64.b64decode(raw_data).decode('utf-8')
+            data = json.loads(decoded_json)
+        except:
+            data = request.json or {}
+            
+        license_key = data.get('license_key')
+        pc_fingerprint = data.get('pc_fingerprint_data')
+        
+        if not license_key:
+            return jsonify({"success": False, "message": "License key is required"}), 400
+            
+        # Simple validation logic (can be expanded)
+        # Accept keys starting with "VECNA-" or "TEST-"
+        if not (license_key.startswith('VECNA-') or license_key.startswith('TEST-')):
+             # Return base64 encoded error for consistency with other endpoints if needed, 
+             # but standard JSON is fine if client handles it. 
+             # The background.js callServerAPI handles both.
+             return jsonify({"success": False, "message": "Invalid license key format."}), 403
+        # Generate a token
+        activation_token = f"tok_{uuid.uuid4().hex}"
+        
+        response_data = {
+            "success": True,
+            "activationToken": activation_token,
+            "licenseId": 1001, # Mock ID
+            "status": "valid",
+            "expiryDate": time.time() * 1000 + 31536000000, # +1 year ms
+            "message": "License activated successfully"
+        }
+        
+        # Return base64 encoded JSON to match expected format for some clients, 
+        # or just JSON. background.js seems to handle base64 response for cloud.
+        json_response = json.dumps(response_data)
+        b64_response = base64.b64encode(json_response.encode('utf-8')).decode('utf-8')
+        return b64_response
+    except Exception as e:
+        error_json = json.dumps({"success": False, "message": str(e)})
+        b64_error = base64.b64encode(error_json.encode('utf-8')).decode('utf-8')
+        return b64_error, 500
 @app.route('/api/create_session', methods=['POST'])
 def create_session():
     try:
