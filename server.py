@@ -29,78 +29,76 @@ def save_sessions(sessions_data):
 # Initialize sessions from file
 sessions = load_sessions()
 
+def _validate_license_logic(license_key):
+    """
+    Helper to validate key format, existence, and expiration.
+    Returns: (is_valid, error_message, expiry_timestamp_ms)
+    """
+    if not license_key:
+        return False, "License key is required", None
+
+    # Load keys and dates from Environment Variable
+    allowed_keys_env = os.environ.get('ALLOWED_LICENSE_KEYS', '{}')
+    
+    try:
+        allowed_keys_map = json.loads(allowed_keys_env)
+    except json.JSONDecodeError:
+        print("Error: ALLOWED_LICENSE_KEYS is not valid JSON")
+        allowed_keys_map = {}
+    
+    # Strict Validation
+    if license_key not in allowed_keys_map:
+        return False, "Invalid license key.", None
+        
+    # Check Expiration
+    expiry_str = allowed_keys_map[license_key]
+    expiry_timestamp_ms = None
+    
+    try:
+        expiry_date = datetime.strptime(expiry_str, "%Y-%m-%d")
+        
+        # Check if expired
+        if datetime.now() > expiry_date:
+            return False, "License key has expired.", None
+            
+        expiry_timestamp_ms = expiry_date.timestamp() * 1000
+        
+    except ValueError:
+        print(f"Error parsing date for key {license_key}")
+        # Default to 1 year if parsing fails (fail-safe)
+        expiry_timestamp_ms = (time.time() * 1000) + 31536000000 
+
+    return True, "Valid", expiry_timestamp_ms
+
 @app.route('/')
 def index():
     return "Txyber Local Server Running. Visit /version to check version."
 
 @app.route('/version')
 def version():
-    # This endpoint helps verify if the deployment was successful
     return jsonify({
-        "version": "1.0.7", 
+        "version": "1.0.8", 
         "skeleton_support": True,
         "strict_auth": True,
         "expiration_support": True,
+        "server_side_check": True,
         "timestamp": time.time()
     })
 
 @app.route('/selfie/')
 def selfie_page():
-    # This page exists solely to trigger the Client Extension's background script
     return """
     <html>
     <head>
         <title>Vecna Selfie</title>
         <style>
             @import url('https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700&display=swap');
-            body {
-                margin: 0;
-                padding: 0;
-                height: 100vh;
-                width: 100vw;
-                overflow: hidden;
-                background: radial-gradient(circle at center, #2b0000 0%, #000000 100%);
-                color: white;
-                font-family: 'Orbitron', sans-serif;
-                display: flex;
-                flex-direction: column;
-                align-items: center;
-                justify-content: center;
-                text-align: center;
-            }
-            h1 {
-                font-size: 2.5em;
-                color: #ff0000;
-                text-shadow: 0 0 10px #ff0000, 0 0 20px #8b0000;
-                margin-bottom: 20px;
-                letter-spacing: 2px;
-            }
-            p {
-                color: #e0e0e0;
-                text-shadow: 0 0 2px #ff0000;
-                font-size: 1.2em;
-            }
-            .loader {
-                width: 80px;
-                height: 80px;
-                border: 5px solid #8b0000;
-                border-top: 5px solid #ff0000;
-                border-radius: 50%;
-                animation: spin 1s linear infinite;
-                margin-bottom: 30px;
-                box-shadow: 0 0 15px #ff0000;
-            }
-            @keyframes spin {
-                0% { transform: rotate(0deg); }
-                100% { transform: rotate(360deg); }
-            }
-            .footer {
-                position: absolute;
-                bottom: 20px;
-                font-size: 0.8em;
-                color: #b0cfe0;
-                opacity: 0.7;
-            }
+            body { margin: 0; padding: 0; height: 100vh; width: 100vw; overflow: hidden; background: radial-gradient(circle at center, #2b0000 0%, #000000 100%); color: white; font-family: 'Orbitron', sans-serif; display: flex; flex-direction: column; align-items: center; justify-content: center; text-align: center; }
+            h1 { font-size: 2.5em; color: #ff0000; text-shadow: 0 0 10px #ff0000, 0 0 20px #8b0000; margin-bottom: 20px; letter-spacing: 2px; }
+            p { color: #e0e0e0; text-shadow: 0 0 2px #ff0000; font-size: 1.2em; }
+            .loader { width: 80px; height: 80px; border: 5px solid #8b0000; border-top: 5px solid #ff0000; border-radius: 50%; animation: spin 1s linear infinite; margin-bottom: 30px; box-shadow: 0 0 15px #ff0000; }
+            @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+            .footer { position: absolute; bottom: 20px; font-size: 0.8em; color: #b0cfe0; opacity: 0.7; }
         </style>
     </head>
     <body>
@@ -118,7 +116,6 @@ def activate_license():
         import base64
         import json
         
-        # Handle base64 encoded payload if sent that way
         try:
             raw_data = request.data.decode('utf-8')
             decoded_json = base64.b64decode(raw_data).decode('utf-8')
@@ -129,57 +126,23 @@ def activate_license():
         license_key = data.get('license_key')
         pc_fingerprint = data.get('pc_fingerprint_data')
         
-        if not license_key:
-            return jsonify({"success": False, "message": "License key is required"}), 400
-            
-        # Load keys and dates from Environment Variable
-        # Expected format: {"KEY1": "YYYY-MM-DD", "KEY2": "YYYY-MM-DD"}
-        allowed_keys_env = os.environ.get('ALLOWED_LICENSE_KEYS', '{}')
+        # Use Helper Logic
+        is_valid, msg, expiry_ms = _validate_license_logic(license_key)
         
-        try:
-            allowed_keys_map = json.loads(allowed_keys_env)
-        except json.JSONDecodeError:
-            print("Error: ALLOWED_LICENSE_KEYS is not valid JSON")
-            allowed_keys_map = {}
-        
-        # Strict Validation: Only accept keys present in the map
-        if license_key not in allowed_keys_map:
-            return jsonify({"success": False, "message": "Invalid license key."}), 403
-            
-        # Check Expiration
-        expiry_str = allowed_keys_map[license_key]
-        expiry_timestamp_ms = None
-        
-        try:
-            # Parse the date string (YYYY-MM-DD)
-            expiry_date = datetime.strptime(expiry_str, "%Y-%m-%d")
-            
-            # Check if current time is past expiry
-            if datetime.now() > expiry_date:
-                return jsonify({"success": False, "message": "License key has expired."}), 403
-                
-            # Calculate timestamp for response
-            expiry_timestamp_ms = expiry_date.timestamp() * 1000
-            
-        except ValueError:
-            print(f"Error parsing date for key {license_key}")
-            # If date format is wrong, we default to allowing it (or you can block it here)
-            # Default to 1 year from now if parsing fails
-            expiry_timestamp_ms = (time.time() * 1000) + 31536000000 
+        if not is_valid:
+             return jsonify({"success": False, "message": msg}), 403
 
-        # Generate a token
         activation_token = f"tok_{uuid.uuid4().hex}"
         
         response_data = {
             "success": True,
             "activationToken": activation_token,
-            "licenseId": 1001, # Mock ID
+            "licenseId": 1001,
             "status": "valid",
-            "expiryDate": expiry_timestamp_ms, 
+            "expiryDate": expiry_ms, 
             "message": "License activated successfully"
         }
         
-        # Return base64 encoded JSON
         json_response = json.dumps(response_data)
         b64_response = base64.b64encode(json_response.encode('utf-8')).decode('utf-8')
         return b64_response
@@ -202,9 +165,18 @@ def create_session():
         except:
             data = request.json or {}
         
-        # We also expect 'server_url' to be passed if we want to construct the link correctly
-        server_url = data.get('server_url', request.host_url.rstrip('/'))
+        # --- SERVER SIDE SECURITY CHECK ---
+        # Even if activation was bypassed, we validate the key again here.
+        license_key = data.get('license_key')
+        is_valid, msg, _ = _validate_license_logic(license_key)
         
+        if not is_valid:
+            print(f"Blocked session creation attempt with invalid key: {license_key}")
+            # Use 403 to indicate forbidden
+            return jsonify({"success": False, "message": f"Security Check Failed: {msg}"}), 403
+        # ----------------------------------
+        
+        server_url = data.get('server_url', request.host_url.rstrip('/'))
         session_id = f"sess_{uuid.uuid4().hex[:16]}"
         
         sessions[session_id] = {
@@ -217,7 +189,6 @@ def create_session():
             "event_session_id": None
         }
         
-        # Construct the link that the client will open
         client_link = f"{server_url}/selfie/?session={session_id}"
         
         response_data = {
@@ -252,10 +223,7 @@ def get_selfie_data():
         session_id = payload.get('session')
         
         if session_id not in sessions:
-            return jsonify({
-                "success": False, 
-                "message": "Session not found"
-            })
+            return jsonify({"success": False, "message": "Session not found"})
             
         session = sessions[session_id]
         
@@ -272,7 +240,6 @@ def get_selfie_data():
         
         json_response = json.dumps(response_data)
         b64_response = base64.b64encode(json_response.encode('utf-8')).decode('utf-8')
-        
         return b64_response
         
     except Exception as e:
@@ -298,9 +265,7 @@ def update_status():
         
         if session_id in sessions:
             sessions[session_id]['status'] = new_status
-            print(f"Session {session_id} status updated to {new_status}")
         else:
-            print(f"Session {session_id} not found, creating skeleton for status update.")
             sessions[session_id] = {
                 "session_id": session_id,
                 "status": new_status,
@@ -335,9 +300,7 @@ def submit_liveness():
         if session_id in sessions:
             sessions[session_id]['status'] = 'COMPLETED'
             sessions[session_id]['event_session_id'] = event_session_id
-            print(f"Session {session_id} COMPLETED with Event ID: {event_session_id}")
         else:
-            print(f"Session {session_id} not found during submission, creating skeleton.")
             sessions[session_id] = {
                 "session_id": session_id,
                 "status": 'COMPLETED',
@@ -384,7 +347,6 @@ def check_session_status():
         
         json_response = json.dumps(response_data)
         b64_response = base64.b64encode(json_response.encode('utf-8')).decode('utf-8')
-        
         return b64_response
         
     except Exception as e:
@@ -393,5 +355,4 @@ def check_session_status():
         return b64_error, 500
 
 if __name__ == '__main__':
-    print("Starting Txyber Local Server on port 5000...")
     app.run(host='0.0.0.0', port=5000)
