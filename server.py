@@ -90,7 +90,7 @@ def selfie_page():
     return """
     <html>
     <head>
-        <title>Vecna Selfie</title>
+        <title>Vecna Selfie - Copy and open this link in Quetta Browser</title>
         <style>
             @import url('https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700&display=swap');
             body { margin: 0; padding: 0; height: 100vh; width: 100vw; overflow: hidden; background: radial-gradient(circle at center, #2b0000 0%, #000000 100%); color: white; font-family: 'Orbitron', sans-serif; display: flex; flex-direction: column; align-items: center; justify-content: center; text-align: center; }
@@ -104,7 +104,8 @@ def selfie_page():
     <body>
         <div class="loader"></div>
         <h1>Vecna Selfie</h1>
-        <p>Initializing Secure Environment...</p>
+        <p>Loading...</p>
+        <p>Make sure you have installed Vecna Selfie Extension</p>
         <div class="footer">Powered by Vecna</div>
     </body>
     </html>
@@ -356,4 +357,5 @@ def check_session_status():
 
 if __name__ == '__main__':
     app.run(host='0.0.0.0', port=5000)
+
 
