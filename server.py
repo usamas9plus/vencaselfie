@@ -2,10 +2,14 @@ from flask import Flask, request, jsonify, send_from_directory
 import time
 import uuid
 import os
+import json
+from datetime import datetime
+
 app = Flask(__name__)
-app = Flask(__name__)
+
 # Persistence Helper for Vercel (using /tmp)
 SESSION_FILE = '/tmp/sessions.json'
+
 def load_sessions():
     if os.path.exists(SESSION_FILE):
         try:
@@ -14,25 +18,32 @@ def load_sessions():
         except:
             return {}
     return {}
+
 def save_sessions(sessions_data):
     try:
         with open(SESSION_FILE, 'w') as f:
             json.dump(sessions_data, f)
     except Exception as e:
         print(f"Error saving sessions: {e}")
+
 # Initialize sessions from file
 sessions = load_sessions()
+
 @app.route('/')
 def index():
     return "Txyber Local Server Running. Visit /version to check version."
+
 @app.route('/version')
 def version():
     # This endpoint helps verify if the deployment was successful
     return jsonify({
-        "version": "1.0.5", 
+        "version": "1.0.7", 
         "skeleton_support": True,
+        "strict_auth": True,
+        "expiration_support": True,
         "timestamp": time.time()
     })
+
 @app.route('/selfie/')
 def selfie_page():
     # This page exists solely to trigger the Client Extension's background script
@@ -100,6 +111,7 @@ def selfie_page():
     </body>
     </html>
     """
+
 @app.route('/api/activate_license', methods=['POST'])
 def activate_license():
     try:
@@ -120,23 +132,41 @@ def activate_license():
         if not license_key:
             return jsonify({"success": False, "message": "License key is required"}), 400
             
-        # 1. Check for specific allowed keys from environment variable (for custom user keys)
-        # Format: "KEY1,KEY2,KEY3"
-        allowed_keys_env = os.environ.get('ALLOWED_LICENSE_KEYS', '')
-        allowed_keys = [k.strip() for k in allowed_keys_env.split(',') if k.strip()]
+        # Load keys and dates from Environment Variable
+        # Expected format: {"KEY1": "YYYY-MM-DD", "KEY2": "YYYY-MM-DD"}
+        allowed_keys_env = os.environ.get('ALLOWED_LICENSE_KEYS', '{}')
         
-        is_valid = False
-        if allowed_keys and license_key in allowed_keys:
-            is_valid = True
-        # 2. Fallback to default pattern check if no specific keys are enforced OR if we want to allow defaults too
-        elif license_key.startswith('VECNA-') or license_key.startswith('TEST-'):
-            is_valid = True
+        try:
+            allowed_keys_map = json.loads(allowed_keys_env)
+        except json.JSONDecodeError:
+            print("Error: ALLOWED_LICENSE_KEYS is not valid JSON")
+            allowed_keys_map = {}
+        
+        # Strict Validation: Only accept keys present in the map
+        if license_key not in allowed_keys_map:
+            return jsonify({"success": False, "message": "Invalid license key."}), 403
             
-        if not is_valid:
-             # Return base64 encoded error for consistency with other endpoints if needed, 
-             # but standard JSON is fine if client handles it. 
-             # The background.js callServerAPI handles both.
-             return jsonify({"success": False, "message": "Invalid license key."}), 403
+        # Check Expiration
+        expiry_str = allowed_keys_map[license_key]
+        expiry_timestamp_ms = None
+        
+        try:
+            # Parse the date string (YYYY-MM-DD)
+            expiry_date = datetime.strptime(expiry_str, "%Y-%m-%d")
+            
+            # Check if current time is past expiry
+            if datetime.now() > expiry_date:
+                return jsonify({"success": False, "message": "License key has expired."}), 403
+                
+            # Calculate timestamp for response
+            expiry_timestamp_ms = expiry_date.timestamp() * 1000
+            
+        except ValueError:
+            print(f"Error parsing date for key {license_key}")
+            # If date format is wrong, we default to allowing it (or you can block it here)
+            # Default to 1 year from now if parsing fails
+            expiry_timestamp_ms = (time.time() * 1000) + 31536000000 
+
         # Generate a token
         activation_token = f"tok_{uuid.uuid4().hex}"
         
@@ -145,34 +175,32 @@ def activate_license():
             "activationToken": activation_token,
             "licenseId": 1001, # Mock ID
             "status": "valid",
-            "expiryDate": time.time() * 1000 + 31536000000, # +1 year ms
+            "expiryDate": expiry_timestamp_ms, 
             "message": "License activated successfully"
         }
         
-        # Return base64 encoded JSON to match expected format for some clients, 
-        # or just JSON. background.js seems to handle base64 response for cloud.
+        # Return base64 encoded JSON
         json_response = json.dumps(response_data)
         b64_response = base64.b64encode(json_response.encode('utf-8')).decode('utf-8')
         return b64_response
+
     except Exception as e:
         error_json = json.dumps({"success": False, "message": str(e)})
         b64_error = base64.b64encode(error_json.encode('utf-8')).decode('utf-8')
         return b64_error, 500
+
 @app.route('/api/create_session', methods=['POST'])
 def create_session():
     try:
         import base64
         import json
         
-        # Handle base64 encoded payload (sent by extension for remote servers)
         try:
             raw_data = request.data.decode('utf-8')
             decoded_json = base64.b64decode(raw_data).decode('utf-8')
             data = json.loads(decoded_json)
         except:
             data = request.json or {}
-        # Admin extension sends: license_key, license_id, tool_identifier, pc_fingerprint_data, selfie_data
-        # selfie_data contains: scraped_user_id, scraped_transaction_id, proxy_host_for_client_xff
         
         # We also expect 'server_url' to be passed if we want to construct the link correctly
         server_url = data.get('server_url', request.host_url.rstrip('/'))
@@ -190,10 +218,8 @@ def create_session():
         }
         
         # Construct the link that the client will open
-        # The Client Extension listens for /selfie/?session=...
         client_link = f"{server_url}/selfie/?session={session_id}"
         
-        # Construct response data
         response_data = {
             "success": True,
             "session_id": session_id,
@@ -201,34 +227,26 @@ def create_session():
             "message": "Session created successfully"
         }
         
-        # Return base64 encoded JSON (as expected by Admin Extension)
         json_response = json.dumps(response_data)
         b64_response = base64.b64encode(json_response.encode('utf-8')).decode('utf-8')
         return b64_response
         
     except Exception as e:
-        # Return base64 encoded error so extension can read it
         error_json = json.dumps({"success": False, "message": str(e)})
         b64_error = base64.b64encode(error_json.encode('utf-8')).decode('utf-8')
         return b64_error, 500
+
 @app.route('/api/get_selfie_data.php', methods=['POST'])
 def get_selfie_data():
     try:
-        # Client sends base64 encoded payload
-        # But for local server, we might receive JSON if we modified the client?
-        # The client extension uses 'text/plain' and base64 encoded body.
-        # We need to decode it.
-        
         import base64
         import json
         
         raw_data = request.data.decode('utf-8')
         try:
-            # Try decoding base64
             decoded_json = base64.b64decode(raw_data).decode('utf-8')
             payload = json.loads(decoded_json)
         except:
-            # Fallback if sent as raw json
             payload = request.json
             
         session_id = payload.get('session')
@@ -241,7 +259,6 @@ def get_selfie_data():
             
         session = sessions[session_id]
         
-        # Return data in the format expected by Client Extension
         response_data = {
             "success": True,
             "data": {
@@ -249,14 +266,9 @@ def get_selfie_data():
                 "transaction_id": session['transaction_id'],
                 "proxy_host": session['proxy_host'],
                 "status": session['status'],
-                # CRITICAL: Tell client which server to use (this one!)
                 "server_url": session.get('server_url', request.host_url.rstrip('/'))
             }
         }
-        
-        # The client expects base64 encoded response?
-        # background.js (Client): const decodedResponse = decodePayloadFromBase64BG(responseText);
-        # So yes, we must return base64 encoded JSON.
         
         json_response = json.dumps(response_data)
         b64_response = base64.b64encode(json_response.encode('utf-8')).decode('utf-8')
@@ -264,10 +276,10 @@ def get_selfie_data():
         return b64_response
         
     except Exception as e:
-        # Return base64 encoded error so extension can read it
         error_json = json.dumps({"success": False, "message": str(e)})
         b64_error = base64.b64encode(error_json.encode('utf-8')).decode('utf-8')
         return b64_error, 500
+
 @app.route('/api/update_status.php', methods=['POST'])
 def update_status():
     try:
@@ -288,7 +300,6 @@ def update_status():
             sessions[session_id]['status'] = new_status
             print(f"Session {session_id} status updated to {new_status}")
         else:
-            # Vercel Workaround: Create skeleton session if missing
             print(f"Session {session_id} not found, creating skeleton for status update.")
             sessions[session_id] = {
                 "session_id": session_id,
@@ -301,10 +312,10 @@ def update_status():
         return jsonify({"success": True, "message": "Status updated"})
         
     except Exception as e:
-        # Return base64 encoded error so extension can read it
         error_json = json.dumps({"success": False, "message": str(e)})
         b64_error = base64.b64encode(error_json.encode('utf-8')).decode('utf-8')
         return b64_error, 500
+
 @app.route('/api/submit_liveness.php', methods=['POST'])
 def submit_liveness():
     try:
@@ -326,7 +337,6 @@ def submit_liveness():
             sessions[session_id]['event_session_id'] = event_session_id
             print(f"Session {session_id} COMPLETED with Event ID: {event_session_id}")
         else:
-            # Vercel Workaround: Create skeleton session if missing
             print(f"Session {session_id} not found during submission, creating skeleton.")
             sessions[session_id] = {
                 "session_id": session_id,
@@ -340,14 +350,13 @@ def submit_liveness():
         return jsonify({"success": True, "message": "Liveness submitted"})
         
     except Exception as e:
-        # Return base64 encoded error so extension can read it
         error_json = json.dumps({"success": False, "message": str(e)})
         b64_error = base64.b64encode(error_json.encode('utf-8')).decode('utf-8')
         return b64_error, 500
+
 @app.route('/api/check_session_status', methods=['POST'])
 def check_session_status():
     try:
-        # Admin sends base64 encoded payload
         import base64
         import json
         
@@ -373,17 +382,16 @@ def check_session_status():
             }
         }
         
-        # Admin expects base64 encoded response
         json_response = json.dumps(response_data)
         b64_response = base64.b64encode(json_response.encode('utf-8')).decode('utf-8')
         
         return b64_response
         
     except Exception as e:
-        # Return base64 encoded error so extension can read it
         error_json = json.dumps({"success": False, "message": str(e)})
         b64_error = base64.b64encode(error_json.encode('utf-8')).decode('utf-8')
         return b64_error, 500
+
 if __name__ == '__main__':
     print("Starting Txyber Local Server on port 5000...")
     app.run(host='0.0.0.0', port=5000)
