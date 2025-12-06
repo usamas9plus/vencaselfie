@@ -72,7 +72,7 @@ def _validate_license_logic(license_key):
 
 @app.route('/')
 def index():
-    return "Txyber Local Server Running. Visit /version to check version."
+    return "Vecna Server Running. Visit /version to check version."
 
 @app.route('/version')
 def version():
@@ -356,3 +356,4 @@ def check_session_status():
 
 if __name__ == '__main__':
     app.run(host='0.0.0.0', port=5000)
+
