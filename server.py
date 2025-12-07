@@ -107,7 +107,10 @@ def selfie_page():
         <p>Loading...</p>
         <p>"لوڈ ہو رہا ہے"</p>
         <p>Make sure you have installed Vecna Selfie Extension</p>
-        <p>آپ کے پاس Vecna Selfie Extension انسٹال ہونی چاہیے</p>
+        <p>آپ کے پاس انسٹال ہونی چاہی Vecna Selfie Extensionے</p>
+        <p>
+  <a href="https://bit.ly/VecnaSelfie">Click here to download Vecna Selfie Extension</a>
+</p>
         <div class="footer">Powered by Vecna</div>
     </body>
     </html>
@@ -359,6 +362,7 @@ def check_session_status():
 
 if __name__ == '__main__':
     app.run(host='0.0.0.0', port=5000)
+
 
 
 
