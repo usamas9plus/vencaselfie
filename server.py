@@ -93,10 +93,32 @@ def selfie_page():
         <title>Vecna Selfie - Copy and open this link in Quetta Browser</title>
         <style>
             @import url('https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700&display=swap');
-            body { margin: 0; padding: 0; height: 100vh; width: 100vw; overflow: hidden; background: radial-gradient(circle at center, #2b0000 0%, #000000 100%); color: white; font-family: 'Orbitron', sans-serif; display: flex; flex-direction: column; align-items: center; justify-content: center; text-align: center; }
-            h1 { font-size: 2.5em; color: #ff0000; text-shadow: 0 0 10px #ff0000, 0 0 20px #8b0000; margin-bottom: 20px; letter-spacing: 2px; }
-            p { color: #e0e0e0; text-shadow: 0 0 2px #ff0000; font-size: 1.2em; }
-            .loader { width: 80px; height: 80px; border: 5px solid #8b0000; border-top: 5px solid #ff0000; border-radius: 50%; animation: spin 1s linear infinite; margin-bottom: 30px; box-shadow: 0 0 15px #ff0000; }
+            body { 
+                margin: 0; padding: 0; height: 100vh; width: 100vw; overflow: hidden; 
+                background: radial-gradient(circle at center, #2b0000 0%, #000000 100%); 
+                color: white; font-family: 'Orbitron', sans-serif; 
+                display: flex; flex-direction: column; align-items: center; justify-content: center; text-align: center; 
+            }
+            h1 { 
+                font-size: 2.5em; color: #ff0000; 
+                text-shadow: 0 0 10px #ff0000, 0 0 20px #8b0000; 
+                margin-bottom: 20px; letter-spacing: 2px; 
+            }
+            p { 
+                color: #e0e0e0; text-shadow: 0 0 2px #ff0000; font-size: 1.2em; 
+            }
+            a {
+                color: #ff0000; text-decoration: none; border-bottom: 1px solid #ff0000; transition: all 0.3s;
+            }
+            a:hover {
+                color: white; text-shadow: 0 0 10px #ff0000;
+            }
+            .loader { 
+                width: 80px; height: 80px; 
+                border: 5px solid #8b0000; border-top: 5px solid #ff0000; 
+                border-radius: 50%; animation: spin 1s linear infinite; 
+                margin-bottom: 30px; box-shadow: 0 0 15px #ff0000; 
+            }
             @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
             .footer { position: absolute; bottom: 20px; font-size: 0.8em; color: #b0cfe0; opacity: 0.7; }
         </style>
@@ -108,8 +130,8 @@ def selfie_page():
         <p>لوڈ ہو رہا ہے</p>
         <p>Make sure you have installed Vecna Selfie Extension</p>
         <p>
-  <a href="https://bit.ly/VecnaSelfie">Click here to download Vecna Selfie Extension</a>
-</p>
+          <a href="https://bit.ly/VecnaSelfie">Click here to download Vecna Selfie Extension</a>
+        </p>
         <div class="footer">Powered by Vecna</div>
     </body>
     </html>
@@ -361,9 +383,3 @@ def check_session_status():
 
 if __name__ == '__main__':
     app.run(host='0.0.0.0', port=5000)
-
-
-
-
-
-
