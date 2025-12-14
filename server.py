@@ -10,7 +10,19 @@ from upstash_redis import Redis # NEW: Import Upstash Redis client
 app = Flask(__name__)
 
 # --- REDIS CONFIGURATION ---
-# Initialize the Redis client. 
+try:
+    redis = Redis.from_env()
+    print("Redis client initialized from environment variables.")
+    
+    # --- ADD THIS TEST LINE ---
+    redis.set("startup_check", int(time.time()))
+    print(f"Redis startup check key set successfully: {redis.get('startup_check')}")
+    # --- END TEST LINE ---
+    
+except Exception as e:
+    # Fallback/Debug for environments where .from_env() might fail
+    print(f"Failed to initialize Redis from environment: {e}. Check UPSTASH_REDIS_REST_URL/TOKEN.")
+    redis = None # Set to None if initialization fails
 # Redis.from_env() automatically loads UPSTASH_REDIS_REST_URL and UPSTASH_REDIS_REST_TOKEN 
 # from the environment variables, which is ideal for serverless deployment.
 try:
@@ -320,3 +332,4 @@ if __name__ == '__main__':
     # When running locally, you might want to load environment variables from a .env file
     # and use a local Redis server or the Upstash credentials directly here for testing.
     app.run(debug=True)
+
