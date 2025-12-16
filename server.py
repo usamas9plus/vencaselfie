@@ -3,6 +3,7 @@ import time
 import uuid
 import os
 import json
+import hashlib
 from datetime import datetime
 from upstash_redis import Redis
 
@@ -19,6 +20,18 @@ except Exception as e:
 
 # License Keys loaded from Env
 ALLOWED_LICENSE_KEYS_JSON = os.environ.get('ALLOWED_LICENSE_KEYS', '{}')
+
+def get_fingerprint_hash(fingerprint_data):
+    """
+    Creates a consistent hash from fingerprint data.
+    We sort keys to ensure JSON order doesn't affect the hash.
+    """
+    if not fingerprint_data:
+        return None
+    
+    # Sort keys to ensure {"a":1, "b":2} produces same hash as {"b":2, "a":1}
+    canonical_str = json.dumps(fingerprint_data, sort_keys=True)
+    return hashlib.sha256(canonical_str.encode('utf-8')).hexdigest()
 
 def _validate_license_logic(license_key):
     """
@@ -57,17 +70,14 @@ def _validate_license_logic(license_key):
 
 @app.route('/')
 def index():
-    return "Vecna Server Running (Upstash Backend). Visit /version to check version."
+    return "Vecna Server Running (Upstash Backend + Secure Device Lock). Visit /version to check version."
 
 @app.route('/version')
 def version():
     return jsonify({
-        "version": "1.1.0", 
+        "version": "1.3.0", 
         "backend": "upstash-redis",
-        "skeleton_support": True,
-        "strict_auth": True,
-        "expiration_support": True,
-        "server_side_check": True,
+        "features": ["skeleton_support", "strict_auth", "expiration_support", "device_locking", "fail_secure"],
         "timestamp": time.time()
     })
 
@@ -136,11 +146,51 @@ def activate_license():
             data = request.json or {}
             
         license_key = data.get('license_key')
+        pc_fingerprint = data.get('pc_fingerprint_data')
         
+        # --- FAIL-SECURE CHECK 1: DATABASE CONNECTION ---
+        if not redis:
+            print("CRITICAL: Redis not connected. Rejecting activation.")
+            return jsonify({
+                "success": False, 
+                "message": "Server Error: Security database unavailable. Please contact support."
+            }), 500
+
+        # --- FAIL-SECURE CHECK 2: FINGERPRINT PRESENCE ---
+        if not pc_fingerprint:
+            print(f"Blocked activation for {license_key}: Missing device fingerprint.")
+            return jsonify({
+                "success": False, 
+                "message": "Security Error: Device identity missing. Update your extension."
+            }), 400
+
+        # 1. Validate License Key Existence/Expiry
         is_valid, msg, expiry_ms = _validate_license_logic(license_key)
         
         if not is_valid:
              return jsonify({"success": False, "message": msg}), 403
+
+        # 2. DEVICE LOCKING LOGIC
+        # Create a consistent hash of the user's hardware
+        incoming_hash = get_fingerprint_hash(pc_fingerprint)
+        lock_key = f"license_lock:{license_key}"
+        
+        # Check if this license is already locked to a device
+        stored_hash = redis.get(lock_key)
+        
+        if stored_hash:
+            # If locked, check if it matches the current device
+            if stored_hash != incoming_hash:
+                print(f"Device Mismatch! Stored: {stored_hash} vs Incoming: {incoming_hash}")
+                return jsonify({
+                    "success": False, 
+                    "message": "License is locked to a different device. Please contact support to reset."
+                }), 403
+        else:
+            # First time use: LOCK IT to this device
+            # Persist forever (no expiration on lock key)
+            redis.set(lock_key, incoming_hash)
+            print(f"License {license_key} locked to device {incoming_hash}")
 
         activation_token = f"tok_{uuid.uuid4().hex}"
         
@@ -185,7 +235,6 @@ def create_session():
         server_url = data.get('server_url', request.host_url.rstrip('/'))
         session_id = f"sess_{uuid.uuid4().hex[:16]}"
         
-        # Session Object
         new_session = {
             "session_id": session_id,
             "status": "CREATED",
@@ -283,7 +332,6 @@ def update_status():
             session = json.loads(session_data_str)
             session['status'] = new_status
         else:
-            # Fallback for skeleton sessions (rare case if created directly via update)
             session = {
                 "session_id": session_id,
                 "status": new_status,
