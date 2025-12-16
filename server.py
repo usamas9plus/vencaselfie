@@ -21,6 +21,9 @@ except Exception as e:
 # License Keys loaded from Env
 ALLOWED_LICENSE_KEYS_JSON = os.environ.get('ALLOWED_LICENSE_KEYS', '{}')
 
+# Admin Secret for resetting locks (Set this in Vercel Env Vars)
+ADMIN_SECRET_KEY = os.environ.get('ADMIN_SECRET')
+
 def get_fingerprint_hash(fingerprint_data):
     """
     Creates a consistent hash from fingerprint data.
@@ -75,9 +78,9 @@ def index():
 @app.route('/version')
 def version():
     return jsonify({
-        "version": "1.3.0", 
+        "version": "1.4.0", 
         "backend": "upstash-redis",
-        "features": ["skeleton_support", "strict_auth", "expiration_support", "device_locking", "fail_secure"],
+        "features": ["strict_auth", "device_locking", "fail_secure", "link_generation_lock_check"],
         "timestamp": time.time()
     })
 
@@ -133,6 +136,34 @@ def selfie_page():
     </html>
     """
 
+# --- ADMIN RESET ENDPOINT ---
+@app.route('/api/admin/reset_license', methods=['POST'])
+def admin_reset_license():
+    try:
+        data = request.json or {}
+        license_key = data.get('license_key')
+        admin_secret = data.get('admin_secret')
+
+        # Security Check
+        if not ADMIN_SECRET_KEY or admin_secret != ADMIN_SECRET_KEY:
+            return jsonify({"success": False, "message": "Unauthorized"}), 401
+
+        if not redis:
+            return jsonify({"success": False, "message": "Database error"}), 500
+
+        lock_key = f"license_lock:{license_key}"
+        exists = redis.exists(lock_key)
+        
+        if exists:
+            redis.delete(lock_key)
+            print(f"ADMIN: Reset device lock for {license_key}")
+            return jsonify({"success": True, "message": f"License {license_key} has been reset."})
+        else:
+            return jsonify({"success": False, "message": "License was not locked."}), 404
+
+    except Exception as e:
+        return jsonify({"success": False, "message": str(e)}), 500
+
 @app.route('/api/activate_license', methods=['POST'])
 def activate_license():
     try:
@@ -148,47 +179,30 @@ def activate_license():
         license_key = data.get('license_key')
         pc_fingerprint = data.get('pc_fingerprint_data')
         
-        # --- FAIL-SECURE CHECK 1: DATABASE CONNECTION ---
+        # --- FAIL-SECURE CHECK ---
         if not redis:
-            print("CRITICAL: Redis not connected. Rejecting activation.")
-            return jsonify({
-                "success": False, 
-                "message": "Server Error: Security database unavailable. Please contact support."
-            }), 500
-
-        # --- FAIL-SECURE CHECK 2: FINGERPRINT PRESENCE ---
+            return jsonify({"success": False, "message": "Server Error: Database unavailable."}), 500
         if not pc_fingerprint:
-            print(f"Blocked activation for {license_key}: Missing device fingerprint.")
-            return jsonify({
-                "success": False, 
-                "message": "Security Error: Device identity missing. Update your extension."
-            }), 400
+            return jsonify({"success": False, "message": "Security Error: Device identity missing."}), 400
 
-        # 1. Validate License Key Existence/Expiry
+        # Validate License
         is_valid, msg, expiry_ms = _validate_license_logic(license_key)
-        
         if not is_valid:
              return jsonify({"success": False, "message": msg}), 403
 
-        # 2. DEVICE LOCKING LOGIC
-        # Create a consistent hash of the user's hardware
+        # --- DEVICE LOCKING ---
         incoming_hash = get_fingerprint_hash(pc_fingerprint)
         lock_key = f"license_lock:{license_key}"
         
-        # Check if this license is already locked to a device
         stored_hash = redis.get(lock_key)
         
         if stored_hash:
-            # If locked, check if it matches the current device
             if stored_hash != incoming_hash:
-                print(f"Device Mismatch! Stored: {stored_hash} vs Incoming: {incoming_hash}")
                 return jsonify({
                     "success": False, 
-                    "message": "License is locked to a different device. Please contact support to reset."
+                    "message": "License is locked to a different device. Reset required."
                 }), 403
         else:
-            # First time use: LOCK IT to this device
-            # Persist forever (no expiration on lock key)
             redis.set(lock_key, incoming_hash)
             print(f"License {license_key} locked to device {incoming_hash}")
 
@@ -224,14 +238,42 @@ def create_session():
         except:
             data = request.json or {}
         
-        # Security Check
         license_key = data.get('license_key')
+        pc_fingerprint = data.get('pc_fingerprint_data')
+        
+        # --- FAIL-SECURE CHECK (REPEATED FOR SAFETY) ---
+        if not redis:
+            return jsonify({"success": False, "message": "Server Error: Database unavailable."}), 500
+        
+        # Link generation MUST contain fingerprint
+        if not pc_fingerprint:
+             return jsonify({"success": False, "message": "Security Error: Device identity missing."}), 400
+
+        # --- LICENSE & LOCK VERIFICATION ---
         is_valid, msg, _ = _validate_license_logic(license_key)
-        
         if not is_valid:
-            print(f"Blocked session creation attempt with invalid key: {license_key}")
             return jsonify({"success": False, "message": f"Security Check Failed: {msg}"}), 403
-        
+
+        # --- RE-CHECK DEVICE LOCK ---
+        incoming_hash = get_fingerprint_hash(pc_fingerprint)
+        lock_key = f"license_lock:{license_key}"
+        stored_hash = redis.get(lock_key)
+
+        # 1. If no lock exists, it means they bypassed activation. BLOCK.
+        if not stored_hash:
+            return jsonify({
+                "success": False, 
+                "message": "License not active. Please Logout and Re-Activate."
+            }), 403
+
+        # 2. If mismatch, they are on a different device. BLOCK.
+        if stored_hash != incoming_hash:
+             return jsonify({
+                "success": False, 
+                "message": "Device mismatch. Link generation denied."
+            }), 403
+
+        # --- PROCEED IF ALL CHECKS PASS ---
         server_url = data.get('server_url', request.host_url.rstrip('/'))
         session_id = f"sess_{uuid.uuid4().hex[:16]}"
         
@@ -246,7 +288,6 @@ def create_session():
             "server_url": server_url
         }
         
-        # Save to Redis (Expire in 24h = 86400s)
         if redis:
             redis.set(session_id, json.dumps(new_session), ex=86400)
         
@@ -281,8 +322,6 @@ def get_selfie_data():
             payload = request.json
             
         session_id = payload.get('session')
-        
-        # Fetch from Redis
         session_data_str = redis.get(session_id) if redis else None
         
         if not session_data_str:
@@ -325,7 +364,6 @@ def update_status():
         session_id = payload.get('session_id')
         new_status = payload.get('new_status')
         
-        # Retrieve existing session
         session_data_str = redis.get(session_id) if redis else None
         
         if session_data_str:
@@ -339,7 +377,6 @@ def update_status():
                 "is_skeleton": True
             }
 
-        # Save back to Redis
         if redis:
             redis.set(session_id, json.dumps(session), ex=86400)
 
@@ -403,7 +440,6 @@ def check_session_status():
             payload = request.json
             
         session_id = payload.get('session_id')
-        
         session_data_str = redis.get(session_id) if redis else None
         
         if not session_data_str:
