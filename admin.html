@@ -1,0 +1,219 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Vecna Admin Console</title>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700&family=Inter:wght@400;600&display=swap');
+        
+        :root {
+            --bg: #050505;
+            --card: #0a0a0a;
+            --red: #ff0000;
+            --text: #e0e0e0;
+            --border: #330000;
+        }
+
+        body {
+            background-color: var(--bg);
+            color: var(--text);
+            font-family: 'Inter', sans-serif;
+            margin: 0;
+            padding: 40px;
+        }
+
+        .container { max-width: 1200px; margin: 0 auto; }
+
+        h1 {
+            font-family: 'Orbitron', sans-serif;
+            color: var(--red);
+            text-transform: uppercase;
+            letter-spacing: 4px;
+            border-bottom: 2px solid var(--red);
+            padding-bottom: 10px;
+        }
+
+        .setup-bar {
+            background: var(--card);
+            padding: 20px;
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            margin-bottom: 30px;
+            display: flex;
+            gap: 15px;
+            align-items: center;
+        }
+
+        input {
+            background: #000;
+            border: 1px solid var(--border);
+            color: #fff;
+            padding: 10px;
+            border-radius: 4px;
+            flex: 1;
+        }
+
+        button {
+            background: linear-gradient(180deg, #8b0000 0%, #500000 100%);
+            color: white;
+            border: 1px solid var(--red);
+            padding: 10px 20px;
+            cursor: pointer;
+            font-family: 'Orbitron', sans-serif;
+            text-transform: uppercase;
+            font-size: 0.8em;
+        }
+
+        button:hover { background: var(--red); }
+
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(350px, 1fr));
+            gap: 20px;
+        }
+
+        .license-card {
+            background: var(--card);
+            border: 1px solid var(--border);
+            padding: 20px;
+            border-radius: 8px;
+            position: relative;
+        }
+
+        .license-card h3 {
+            margin-top: 0;
+            color: var(--red);
+            font-family: 'Orbitron', sans-serif;
+        }
+
+        .badge {
+            background: #222;
+            padding: 4px 8px;
+            border-radius: 4px;
+            font-size: 0.8em;
+            color: #aaa;
+        }
+
+        .history-list {
+            margin-top: 15px;
+            font-size: 0.85em;
+            max-height: 200px;
+            overflow-y: auto;
+            border-top: 1px solid var(--border);
+            padding-top: 10px;
+        }
+
+        .history-item {
+            padding: 5px 0;
+            border-bottom: 1px solid #111;
+            display: flex;
+            justify-content: space-between;
+        }
+
+        .reset-btn {
+            background: transparent;
+            border-color: #666;
+            color: #999;
+            width: 100%;
+            margin-top: 15px;
+        }
+
+        .reset-btn:hover { border-color: var(--red); color: #fff; }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <h1>Vecna Usage Monitor</h1>
+    
+    <div class="setup-bar">
+        <input type="text" id="serverUrl" placeholder="Your Vercel URL (https://...)" value="https://vencaselfie.vercel.app">
+        <input type="password" id="adminSecret" placeholder="Admin Secret Key">
+        <button onclick="fetchStats()">Refresh Stats</button>
+    </div>
+
+    <div id="statsContainer" class="stats-grid">
+        </div>
+</div>
+
+<script>
+    async function fetchStats() {
+        const url = document.getElementById('serverUrl').value.replace(/\/$/, '');
+        const secret = document.getElementById('adminSecret').value;
+        const container = document.getElementById('statsContainer');
+
+        if (!secret) return alert("Please enter Admin Secret");
+
+        container.innerHTML = "Loading...";
+
+        try {
+            const response = await fetch(`${url}/api/admin/usage_stats`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ admin_secret: secret })
+            });
+
+            const data = await response.json();
+            if (!data.success) throw new Error(data.message);
+
+            renderStats(data.stats);
+        } catch (e) {
+            container.innerHTML = `<p style="color:red">Error: ${e.message}</p>`;
+        }
+    }
+
+    function renderStats(stats) {
+        const container = document.getElementById('statsContainer');
+        container.innerHTML = "";
+
+        for (const [key, info] of Object.entries(stats)) {
+            const card = document.createElement('div');
+            card.className = 'license-card';
+            
+            let historyHtml = info.recent_history.map(h => `
+                <div class="history-item">
+                    <span>${h.time}</span>
+                    <span style="color:#666">${h.ip}</span>
+                </div>
+            `).join('');
+
+            card.innerHTML = `
+                <h3>${key}</h3>
+                <p>Total Links Generated: <span class="badge" style="color:#00ff00">${info.total_links}</span></p>
+                <div class="history-list">
+                    <strong>Recent Activity (Last 10):</strong>
+                    ${historyHtml || '<p>No history yet</p>'}
+                </div>
+                <button class="reset-btn" onclick="resetLock('${key}')">Reset Device Lock</button>
+            `;
+            container.appendChild(card);
+        }
+    }
+
+    async function resetLock(licenseKey) {
+        if (!confirm(`Are you sure you want to reset the lock for ${licenseKey}?`)) return;
+        
+        const url = document.getElementById('serverUrl').value.replace(/\/$/, '');
+        const secret = document.getElementById('adminSecret').value;
+
+        try {
+            const response = await fetch(`${url}/api/admin/reset_license`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ 
+                    license_key: licenseKey, 
+                    admin_secret: secret 
+                })
+            });
+
+            const data = await response.json();
+            alert(data.message);
+            fetchStats();
+        } catch (e) {
+            alert("Error: " + e.message);
+        }
+    }
+</script>
+</body>
+</html>
