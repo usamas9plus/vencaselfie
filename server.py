@@ -1,4 +1,5 @@
 from flask import Flask, request, jsonify
+from flask_cors import CORS
 import time
 import uuid
 import os
@@ -9,6 +10,8 @@ from datetime import datetime
 from upstash_redis import Redis
 
 app = Flask(__name__)
+# Enable CORS so your admin.html can communicate with this Vercel API
+CORS(app)
 
 # --- CONFIGURATION ---
 # Initialize Upstash Redis via Environment Variables
@@ -50,7 +53,7 @@ def _validate_license_logic(license_key):
         expiry_timestamp_ms = expiry_date.timestamp() * 1000
     except ValueError:
         # Default to 1 year if parsing fails
-        expiry_timestamp_ms = (time.time() * 1000) + 31536000000 
+        expiry_timestamp_ms = (time.time() * 1000) + 31536000000
 
     return True, "Valid", expiry_timestamp_ms
 
@@ -58,14 +61,14 @@ def _validate_license_logic(license_key):
 
 @app.route('/')
 def index():
-    return "Vecna Server Active (Secure Device Lock + Tracking). Visit /version."
+    return "Vecna Server Active (Secure Device Lock + Tracking). Admin Console Ready."
 
 @app.route('/version')
 def version():
     return jsonify({
-        "version": "1.6.0", 
+        "version": "1.7.0", 
         "backend": "upstash-redis",
-        "features": ["device_locking", "usage_tracking", "admin_reset", "fail_secure"],
+        "features": ["device_locking", "usage_tracking", "admin_reset", "fail_secure", "CORS"],
         "timestamp": time.time()
     })
 
@@ -129,6 +132,7 @@ def activate_license():
         license_key = data.get('license_key')
         pc_fingerprint = data.get('pc_fingerprint_data')
         
+        # FAIL-SECURE CHECK
         if not redis:
             return jsonify({"success": False, "message": "Server Error: Database unavailable."}), 500
         if not pc_fingerprint:
@@ -138,6 +142,7 @@ def activate_license():
         if not is_valid:
              return jsonify({"success": False, "message": msg}), 403
 
+        # DEVICE LOCKING LOGIC
         incoming_hash = get_fingerprint_hash(pc_fingerprint)
         lock_key = f"license_lock:{license_key}"
         stored_hash = redis.get(lock_key)
@@ -145,7 +150,7 @@ def activate_license():
         if stored_hash and stored_hash != incoming_hash:
             return jsonify({"success": False, "message": "License locked to another device."}), 403
         elif not stored_hash:
-            redis.set(lock_key, incoming_hash) #
+            redis.set(lock_key, incoming_hash)
 
         activation_token = f"tok_{uuid.uuid4().hex}"
         response_data = {
@@ -162,7 +167,7 @@ def activate_license():
 
 @app.route('/api/create_session', methods=['POST'])
 def create_session():
-    """Generates the selfie link and tracks usage."""
+    """Generates the selfie link, tracks usage, and re-verifies device lock."""
     try:
         try:
             raw_data = request.data.decode('utf-8')
@@ -176,22 +181,21 @@ def create_session():
         if not redis: return jsonify({"success": False, "message": "DB Error."}), 500
         if not pc_fingerprint: return jsonify({"success": False, "message": "Security Error: Fingerprint missing."}), 400
 
+        # Security & Lock Check
         is_valid, msg, _ = _validate_license_logic(license_key)
-        if not is_valid: return jsonify({"success": False, "message": msg}), 403
-
-        # Device Lock Check
         incoming_hash = get_fingerprint_hash(pc_fingerprint)
         stored_hash = redis.get(f"license_lock:{license_key}")
-        if not stored_hash or stored_hash != incoming_hash:
-            return jsonify({"success": False, "message": "Device mismatch. Authorization denied."}), 403
 
-        # --- TRACKING ---
+        if not is_valid or not stored_hash or stored_hash != incoming_hash:
+            return jsonify({"success": False, "message": "Device mismatch or unauthorized access."}), 403
+
+        # TRACKING
         redis.incr(f"usage_count:{license_key}")
         usage_event = {"time": datetime.now().strftime("%Y-%m-%d %H:%M:%S"), "ip": request.remote_addr}
         redis.lpush(f"usage_history:{license_key}", json.dumps(usage_event))
         redis.ltrim(f"usage_history:{license_key}", 0, 49)
 
-        # Create Session
+        # Session Creation
         server_url = data.get('server_url', request.host_url.rstrip('/'))
         session_id = f"sess_{uuid.uuid4().hex[:16]}"
         session_data = {
@@ -204,7 +208,7 @@ def create_session():
             "event_session_id": None,
             "server_url": server_url
         }
-        redis.set(session_id, json.dumps(session_data), ex=86400) #
+        redis.set(session_id, json.dumps(session_data), ex=86400)
         
         response_data = {
             "success": True, 
@@ -317,6 +321,33 @@ def check_session_status():
         return base64.b64encode(json.dumps(response_data).encode('utf-8')).decode('utf-8')
     except Exception as e:
         return jsonify({"success": False, "message": str(e)}), 500
+
+@app.route('/selfie/')
+def selfie_page():
+    return """
+    <html>
+    <head>
+        <title>Vecna Selfie</title>
+        <style>
+            @import url('https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700&display=swap');
+            body { 
+                margin: 0; padding: 0; height: 100vh; width: 100vw; overflow: hidden; 
+                background: radial-gradient(circle at center, #2b0000 0%, #000000 100%); 
+                color: white; font-family: 'Orbitron', sans-serif; 
+                display: flex; flex-direction: column; align-items: center; justify-content: center; text-align: center; 
+            }
+            h1 { font-size: 2.5em; color: #ff0000; text-shadow: 0 0 10px #ff0000; margin-bottom: 20px; }
+            .loader { width: 80px; height: 80px; border: 5px solid #8b0000; border-top: 5px solid #ff0000; border-radius: 50%; animation: spin 1s linear infinite; margin-bottom: 30px; }
+            @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+        </style>
+    </head>
+    <body>
+        <div class="loader"></div>
+        <h1>Vecna Selfie</h1>
+        <p>Loading session data...</p>
+    </body>
+    </html>
+    """
 
 if __name__ == '__main__':
     app.run(host='0.0.0.0', port=5000)
