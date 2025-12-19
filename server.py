@@ -49,7 +49,7 @@ def _validate_license_logic(license_key):
     try:
         expiry_date = datetime.strptime(expiry_str, "%Y-%m-%d")
         if datetime.now() > expiry_date:
-            return False, "License key has expired. Please renew your license key!\nآپ کی لائسنس کی ایکسپائر ہو چکی ہے۔ براے مہربانی اپنی لائسنس کی رینیو کیجیے۔", None
+            return False, "License key has expired. Please renew your license key!", None
         expiry_timestamp_ms = expiry_date.timestamp() * 1000
     except ValueError:
         # Default to 1 year if parsing fails
@@ -357,4 +357,5 @@ def selfie_page():
 
 if __name__ == '__main__':
     app.run(host='0.0.0.0', port=5000)
+
 
