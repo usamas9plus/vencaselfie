@@ -43,7 +43,7 @@ def _validate_license_logic(license_key):
         allowed_keys_map = {}
     
     if license_key not in allowed_keys_map:
-        return False, "Invalid license key or key has expired!", None
+        return False, "Invalid license key. Contact vecnadevofficial@gmail.com to Purchase a license key!", None
         
     expiry_str = allowed_keys_map[license_key]
     try:
@@ -357,6 +357,7 @@ def selfie_page():
 
 if __name__ == '__main__':
     app.run(host='0.0.0.0', port=5000)
+
 
 
 
