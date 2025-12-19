@@ -66,7 +66,7 @@ def index():
 @app.route('/version')
 def version():
     return jsonify({
-        "version": "1.7.0", 
+        "version": "1.7.1", 
         "backend": "upstash-redis",
         "features": ["device_locking", "usage_tracking", "admin_reset", "fail_secure", "CORS"],
         "timestamp": time.time()
@@ -183,10 +183,16 @@ def create_session():
 
         # Security & Lock Check
         is_valid, msg, _ = _validate_license_logic(license_key)
+        
+        # --- FIX START: Check validity first and return specific message ---
+        if not is_valid:
+             return jsonify({"success": False, "message": msg}), 403
+        # --- FIX END ---
+
         incoming_hash = get_fingerprint_hash(pc_fingerprint)
         stored_hash = redis.get(f"license_lock:{license_key}")
 
-        if not is_valid or not stored_hash or stored_hash != incoming_hash:
+        if not stored_hash or stored_hash != incoming_hash:
             return jsonify({"success": False, "message": "Device mismatch or unauthorized access."}), 403
 
         # TRACKING
@@ -351,4 +357,3 @@ def selfie_page():
 
 if __name__ == '__main__':
     app.run(host='0.0.0.0', port=5000)
-
