@@ -148,7 +148,7 @@ def activate_license():
         stored_hash = redis.get(lock_key)
         
         if stored_hash and stored_hash != incoming_hash:
-            return jsonify({"success": False, "message": "License locked to another device."}), 403
+            return jsonify({"success": False, "message": "Only 1 Device is allowed, Please login on previous Device."}), 403
         elif not stored_hash:
             redis.set(lock_key, incoming_hash)
 
@@ -357,6 +357,7 @@ def selfie_page():
 
 if __name__ == '__main__':
     app.run(host='0.0.0.0', port=5000)
+
 
 
 
