@@ -193,7 +193,7 @@ def create_session():
         stored_hash = redis.get(f"license_lock:{license_key}")
 
         if not stored_hash or stored_hash != incoming_hash:
-            return jsonify({"success": False, "message": "Device mismatch or unauthorized access."}), 403
+            return jsonify({"success": False, "message": "This Device is NOT Allowed.\nYou're only allowed to use on 1 Device."}), 403
 
         # TRACKING
         redis.incr(f"usage_count:{license_key}")
@@ -357,5 +357,6 @@ def selfie_page():
 
 if __name__ == '__main__':
     app.run(host='0.0.0.0', port=5000)
+
 
 
