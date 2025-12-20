@@ -333,7 +333,7 @@ def selfie_page():
     return """
     <html>
     <head>
-        <title>Vecna Selfie</title>
+        <title>Vecna Selfie - Copy and Open this link in Kiwi/Quetta Browser</title>
         <style>
             @import url('https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700&display=swap');
             body { 
@@ -357,6 +357,7 @@ def selfie_page():
 
 if __name__ == '__main__':
     app.run(host='0.0.0.0', port=5000)
+
 
 
 
