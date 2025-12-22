@@ -61,7 +61,7 @@ def _validate_license_logic(license_key):
 
 @app.route('/')
 def index():
-    return "Vecna Server Active (Secure Device Lock + Tracking). Admin Console Ready."
+    return "403 Forbidden"
 
 @app.route('/version')
 def version():
@@ -357,6 +357,7 @@ def selfie_page():
 
 if __name__ == '__main__':
     app.run(host='0.0.0.0', port=5000)
+
 
 
 
