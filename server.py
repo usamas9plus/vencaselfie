@@ -6,6 +6,7 @@ import os
 import json
 import hashlib
 import base64
+import secrets
 from datetime import datetime
 from upstash_redis import Redis
 
@@ -21,7 +22,7 @@ except Exception as e:
     print(f"Warning: Redis not initialized. Check Env Vars. Error: {e}")
     redis = None
 
-# Load settings from Vercel Environment Variables
+# Keep Env vars as fallback for legacy keys
 ALLOWED_LICENSE_KEYS_JSON = os.environ.get('ALLOWED_LICENSE_KEYS', '{}')
 ADMIN_SECRET_KEY = os.environ.get('ADMIN_SECRET')
 
@@ -34,28 +35,62 @@ def get_fingerprint_hash(fingerprint_data):
     return hashlib.sha256(canonical_str.encode('utf-8')).hexdigest()
 
 def _validate_license_logic(license_key):
-    """Validates key existence and checks against the expiration date."""
+    """
+    Validates key against Redis (Dynamic) first, then Environment Variables (Legacy).
+    """
     if not license_key:
         return False, "License key is required", None
+    
+    expiry_timestamp_ms = None
+    
+    # --- STRATEGY 1: CHECK REDIS (DATABASE) ---
+    if redis:
+        # We store keys in Redis with prefix "license_data:"
+        redis_key = f"license_data:{license_key}"
+        stored_data = redis.get(redis_key)
+        
+        if stored_data:
+            try:
+                if isinstance(stored_data, str):
+                    key_info = json.loads(stored_data)
+                else:
+                    key_info = stored_data # Handle case where Redis client returns dict
+                
+                expiry_str = key_info.get("expiry")
+                
+                # Check Expiration
+                if expiry_str:
+                    expiry_date = datetime.strptime(expiry_str, "%Y-%m-%d")
+                    if datetime.now() > expiry_date:
+                        return False, "License key has expired. Please renew!", None
+                    expiry_timestamp_ms = expiry_date.timestamp() * 1000
+                else:
+                    # Default 1 year if no expiry set
+                    expiry_timestamp_ms = (time.time() * 1000) + 31536000000
+                
+                return True, "Valid", expiry_timestamp_ms
+            except Exception as e:
+                print(f"Error parsing redis license data: {e}")
+                # Fall through to legacy check if parsing fails
+
+    # --- STRATEGY 2: CHECK ENV VARS (LEGACY FALLBACK) ---
     try:
         allowed_keys_map = json.loads(ALLOWED_LICENSE_KEYS_JSON)
     except json.JSONDecodeError:
         allowed_keys_map = {}
     
-    if license_key not in allowed_keys_map:
-        return False, "Invalid license key. Contact vecnadevofficial@gmail.com to Purchase a license key!", None
-        
-    expiry_str = allowed_keys_map[license_key]
-    try:
-        expiry_date = datetime.strptime(expiry_str, "%Y-%m-%d")
-        if datetime.now() > expiry_date:
-            return False, "License key has expired. Please renew your license key!", None
-        expiry_timestamp_ms = expiry_date.timestamp() * 1000
-    except ValueError:
-        # Default to 1 year if parsing fails
-        expiry_timestamp_ms = (time.time() * 1000) + 31536000000
+    if license_key in allowed_keys_map:
+        expiry_str = allowed_keys_map[license_key]
+        try:
+            expiry_date = datetime.strptime(expiry_str, "%Y-%m-%d")
+            if datetime.now() > expiry_date:
+                return False, "License key has expired. Please renew your license key!", None
+            expiry_timestamp_ms = expiry_date.timestamp() * 1000
+        except ValueError:
+            expiry_timestamp_ms = (time.time() * 1000) + 31536000000
+        return True, "Valid", expiry_timestamp_ms
 
-    return True, "Valid", expiry_timestamp_ms
+    return False, "Invalid license key. Contact vecnadevofficial@gmail.com to Purchase a license key!", None
 
 # --- ROUTES ---
 
@@ -66,13 +101,70 @@ def index():
 @app.route('/version')
 def version():
     return jsonify({
-        "version": "1.7.1", 
+        "version": "1.8.0", 
         "backend": "upstash-redis",
-        "features": ["device_locking", "usage_tracking", "admin_reset", "fail_secure", "CORS"],
+        "features": ["dynamic_keys", "device_locking", "usage_tracking", "admin_reset", "CORS"],
         "timestamp": time.time()
     })
 
 # --- ADMIN ENDPOINTS ---
+
+@app.route('/api/admin/generate_license', methods=['POST'])
+def admin_generate_license():
+    """
+    Generates a new license key and stores it in Redis.
+    Payload: { "admin_secret": "...", "expiry": "YYYY-MM-DD", "custom_key": "optional" }
+    """
+    try:
+        data = request.json or {}
+        admin_secret = data.get('admin_secret')
+        expiry_date = data.get('expiry') # Format YYYY-MM-DD
+        custom_key = data.get('custom_key')
+
+        if not ADMIN_SECRET_KEY or admin_secret != ADMIN_SECRET_KEY:
+            return jsonify({"success": False, "message": "Unauthorized"}), 401
+            
+        if not expiry_date:
+            return jsonify({"success": False, "message": "Expiry date (YYYY-MM-DD) is required"}), 400
+
+        # Validate date format
+        try:
+            datetime.strptime(expiry_date, "%Y-%m-%d")
+        except ValueError:
+             return jsonify({"success": False, "message": "Invalid date format. Use YYYY-MM-DD"}), 400
+
+        # Generate Key
+        if custom_key:
+            new_license_key = custom_key
+        else:
+            # Generate a random 4-block key: XXXX-XXXX-XXXX-XXXX
+            chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789"
+            new_license_key = "-".join([''.join(secrets.choice(chars) for _ in range(4)) for _ in range(4)])
+
+        # Store in Redis
+        license_data = {
+            "expiry": expiry_date,
+            "created_at": time.time(),
+            "status": "active"
+        }
+        
+        redis_key = f"license_data:{new_license_key}"
+        
+        # Check if exists
+        if redis.exists(redis_key) and not custom_key:
+            return jsonify({"success": False, "message": "Collision detected, try again."}), 500
+            
+        redis.set(redis_key, json.dumps(license_data))
+
+        return jsonify({
+            "success": True, 
+            "message": "License generated successfully",
+            "license_key": new_license_key,
+            "expiry": expiry_date
+        })
+
+    except Exception as e:
+        return jsonify({"success": False, "message": str(e)}), 500
 
 @app.route('/api/admin/reset_license', methods=['POST'])
 def admin_reset_license():
@@ -184,10 +276,8 @@ def create_session():
         # Security & Lock Check
         is_valid, msg, _ = _validate_license_logic(license_key)
         
-        # --- FIX START: Check validity first and return specific message ---
         if not is_valid:
              return jsonify({"success": False, "message": msg}), 403
-        # --- FIX END ---
 
         incoming_hash = get_fingerprint_hash(pc_fingerprint)
         stored_hash = redis.get(f"license_lock:{license_key}")
@@ -361,14 +451,3 @@ def selfie_page():
 
 if __name__ == '__main__':
     app.run(host='0.0.0.0', port=5000)
-
-
-
-
-
-
-
-
-
-
-
