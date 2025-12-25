@@ -101,7 +101,7 @@ def index():
 @app.route('/version')
 def version():
     return jsonify({
-        "version": "1.9.1", 
+        "version": "1.9.2", 
         "backend": "upstash-redis",
         "features": ["dynamic_keys", "device_locking", "usage_tracking", "admin_reset", "CORS", "full_admin_suite"],
         "timestamp": time.time()
@@ -174,11 +174,13 @@ def admin_list_licenses():
             return jsonify({"success": False, "message": "Unauthorized"}), 401
 
         licenses = []
-        # Scan for all keys starting with 'license_data:'
         cursor = '0'
-        # Upstash sometimes returns '0' as string or 0 as int
-        while cursor != 0 and cursor != '0':
+        
+        # --- FIXED LOOP LOGIC ---
+        while True:
+            # Upstash .scan returns (cursor, [keys])
             cursor, keys = redis.scan(cursor=cursor, match='license_data:*', count=100)
+            
             for key in keys:
                 key_name = key.split("license_data:")[1]
                 val = redis.get(key)
@@ -197,6 +199,10 @@ def admin_list_licenses():
                     "usage": int(usage_count),
                     "locked": bool(is_locked)
                 })
+
+            # Break if cursor is 0 (end of scan)
+            if cursor == 0 or cursor == '0':
+                break
 
         # Sort by creation date (newest first)
         licenses.sort(key=lambda x: x['created_at'], reverse=True)
@@ -260,7 +266,7 @@ def admin_delete_license():
         pipeline.delete(f"usage_count:{license_key}")
         pipeline.delete(f"usage_history:{license_key}")
         
-        # FIX: Upstash uses .exec(), NOT .execute()
+        # Use .exec() for Upstash Redis pipeline execution
         pipeline.exec()
         
         return jsonify({"success": True, "message": f"Permanently deleted {license_key}"})
