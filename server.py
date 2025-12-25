@@ -165,7 +165,60 @@ def admin_generate_license():
 
     except Exception as e:
         return jsonify({"success": False, "message": str(e)}), 500
+@app.route('/api/admin/list_licenses', methods=['POST'])
+def admin_list_licenses():
+    """Fetches ALL generated licenses from the database."""
+    try:
+        data = request.json or {}
+        admin_secret = data.get('admin_secret')
 
+        if not ADMIN_SECRET_KEY or admin_secret != ADMIN_SECRET_KEY:
+            return jsonify({"success": False, "message": "Unauthorized"}), 401
+
+        licenses = []
+        # Scan for all keys starting with 'license_data:'
+        cursor = '0'
+        while cursor != 0:
+            cursor, keys = redis.scan(cursor=cursor, match='license_data:*', count=100)
+            for key in keys:
+                key_name = key.split("license_data:")[1]
+                val = redis.get(key)
+                
+                # Handle potential string vs dict format from Redis
+                info = json.loads(val) if isinstance(val, str) else val
+                
+                licenses.append({
+                    "key": key_name,
+                    "expiry": info.get('expiry', 'N/A'),
+                    "created_at": info.get('created_at', 0)
+                })
+
+        # Sort by creation date (newest first)
+        licenses.sort(key=lambda x: x['created_at'], reverse=True)
+        return jsonify({"success": True, "licenses": licenses})
+    except Exception as e:
+        return jsonify({"success": False, "message": str(e)}), 500
+
+@app.route('/api/admin/delete_license', methods=['POST'])
+def admin_delete_license():
+    """Permanently deletes a license and its history."""
+    try:
+        data = request.json or {}
+        license_key = data.get('license_key')
+        admin_secret = data.get('admin_secret')
+
+        if not ADMIN_SECRET_KEY or admin_secret != ADMIN_SECRET_KEY:
+            return jsonify({"success": False, "message": "Unauthorized"}), 401
+
+        # Delete all related records
+        redis.delete(f"license_data:{license_key}")
+        redis.delete(f"license_lock:{license_key}")
+        redis.delete(f"usage_count:{license_key}")
+        redis.delete(f"usage_history:{license_key}")
+        
+        return jsonify({"success": True, "message": f"Deleted {license_key}"})
+    except Exception as e:
+        return jsonify({"success": False, "message": str(e)}), 500
 @app.route('/api/admin/reset_license', methods=['POST'])
 def admin_reset_license():
     """Removes the hardware lock for a specific license key."""
@@ -451,3 +504,4 @@ def selfie_page():
 
 if __name__ == '__main__':
     app.run(host='0.0.0.0', port=5000)
+
