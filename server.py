@@ -350,14 +350,18 @@ def selfie_page():
     <body>
         <div class="loader"></div>
         <h1>Vecna Selfie</h1>
-        <h2>Extension NOT Installed!</h2>
+        <h2>Extension is NOT Installed!</h2>
         <p>It looks like you have NOT installed the Vecna Selfie Client Extension please install the extension to continue</p>
+        <a href="https://chromewebstore.google.com/detail/vecna-selfie-client-remot/mcmlkpnkmomgiolpfagpamcihppjpphg">
+  <h2>Click here to install the Client Extension</h2>
+</a>
     </body>
     </html>
     """
 
 if __name__ == '__main__':
     app.run(host='0.0.0.0', port=5000)
+
 
 
 
