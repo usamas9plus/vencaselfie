@@ -45,7 +45,6 @@ def _validate_license_logic(license_key):
     
     # --- STRATEGY 1: CHECK REDIS (DATABASE) ---
     if redis:
-        # We store keys in Redis with prefix "license_data:"
         redis_key = f"license_data:{license_key}"
         stored_data = redis.get(redis_key)
         
@@ -54,24 +53,21 @@ def _validate_license_logic(license_key):
                 if isinstance(stored_data, str):
                     key_info = json.loads(stored_data)
                 else:
-                    key_info = stored_data # Handle case where Redis client returns dict
+                    key_info = stored_data 
                 
                 expiry_str = key_info.get("expiry")
                 
-                # Check Expiration
                 if expiry_str:
                     expiry_date = datetime.strptime(expiry_str, "%Y-%m-%d")
                     if datetime.now() > expiry_date:
                         return False, "License key has expired. Please renew!", None
                     expiry_timestamp_ms = expiry_date.timestamp() * 1000
                 else:
-                    # Default 1 year if no expiry set
                     expiry_timestamp_ms = (time.time() * 1000) + 31536000000
                 
                 return True, "Valid", expiry_timestamp_ms
             except Exception as e:
                 print(f"Error parsing redis license data: {e}")
-                # Fall through to legacy check if parsing fails
 
     # --- STRATEGY 2: CHECK ENV VARS (LEGACY FALLBACK) ---
     try:
@@ -84,13 +80,13 @@ def _validate_license_logic(license_key):
         try:
             expiry_date = datetime.strptime(expiry_str, "%Y-%m-%d")
             if datetime.now() > expiry_date:
-                return False, "License key has expired. Please renew your license key!", None
+                return False, "License key has expired. Please renew!", None
             expiry_timestamp_ms = expiry_date.timestamp() * 1000
         except ValueError:
             expiry_timestamp_ms = (time.time() * 1000) + 31536000000
         return True, "Valid", expiry_timestamp_ms
 
-    return False, "Invalid license key. Contact vecnadevofficial@gmail.com to Purchase a license key!", None
+    return False, "Invalid license key.", None
 
 # --- ROUTES ---
 
@@ -101,44 +97,82 @@ def index():
 @app.route('/version')
 def version():
     return jsonify({
-        "version": "1.9.2", 
+        "version": "2.0.0", 
         "backend": "upstash-redis",
-        "features": ["dynamic_keys", "device_locking", "usage_tracking", "admin_reset", "CORS", "full_admin_suite"],
+        "features": ["migration_tool", "dynamic_keys", "device_locking", "usage_tracking", "admin_reset", "CORS"],
         "timestamp": time.time()
     })
 
-# --- ADMIN ENDPOINTS (UPDATED) ---
+# --- ADMIN ENDPOINTS ---
 
-@app.route('/api/admin/generate_license', methods=['POST'])
-def admin_generate_license():
-    """Generates a new license key and stores it in Redis."""
+@app.route('/api/admin/migrate_legacy_keys', methods=['POST'])
+def admin_migrate_legacy_keys():
+    """Moves keys from Env Vars to Redis Database."""
     try:
         data = request.json or {}
         admin_secret = data.get('admin_secret')
-        expiry_date = data.get('expiry') # Format YYYY-MM-DD
+
+        if not ADMIN_SECRET_KEY or admin_secret != ADMIN_SECRET_KEY:
+            return jsonify({"success": False, "message": "Unauthorized"}), 401
+
+        # Read Legacy Keys
+        try:
+            allowed_keys_map = json.loads(ALLOWED_LICENSE_KEYS_JSON)
+        except:
+            return jsonify({"success": False, "message": "Could not parse ALLOWED_LICENSE_KEYS env var"}), 400
+
+        migrated_count = 0
+        skipped_count = 0
+
+        # Migrate Loop
+        for license_key, expiry_date in allowed_keys_map.items():
+            redis_key = f"license_data:{license_key}"
+            
+            # Only add if it doesn't exist in Redis yet
+            if not redis.exists(redis_key):
+                license_data = {
+                    "expiry": expiry_date,
+                    "created_at": time.time(),
+                    "status": "active",
+                    "source": "legacy_migration"
+                }
+                redis.set(redis_key, json.dumps(license_data))
+                migrated_count += 1
+            else:
+                skipped_count += 1
+        
+        return jsonify({
+            "success": True, 
+            "message": f"Migration complete. Migrated: {migrated_count}, Skipped (Already in DB): {skipped_count}"
+        })
+    except Exception as e:
+        return jsonify({"success": False, "message": str(e)}), 500
+
+@app.route('/api/admin/generate_license', methods=['POST'])
+def admin_generate_license():
+    try:
+        data = request.json or {}
+        admin_secret = data.get('admin_secret')
+        expiry_date = data.get('expiry') 
         custom_key = data.get('custom_key')
 
         if not ADMIN_SECRET_KEY or admin_secret != ADMIN_SECRET_KEY:
             return jsonify({"success": False, "message": "Unauthorized"}), 401
             
         if not expiry_date:
-            return jsonify({"success": False, "message": "Expiry date (YYYY-MM-DD) is required"}), 400
+            return jsonify({"success": False, "message": "Expiry date required"}), 400
 
-        # Validate date format
         try:
             datetime.strptime(expiry_date, "%Y-%m-%d")
         except ValueError:
              return jsonify({"success": False, "message": "Invalid date format. Use YYYY-MM-DD"}), 400
 
-        # Generate Key
         if custom_key:
             new_license_key = custom_key
         else:
-            # Generate a random 4-block key: XXXX-XXXX-XXXX-XXXX
             chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789"
             new_license_key = "-".join([''.join(secrets.choice(chars) for _ in range(4)) for _ in range(4)])
 
-        # Store in Redis
         license_data = {
             "expiry": expiry_date,
             "created_at": time.time(),
@@ -147,7 +181,6 @@ def admin_generate_license():
         
         redis_key = f"license_data:{new_license_key}"
         
-        # Check if exists
         if redis.exists(redis_key) and not custom_key:
             return jsonify({"success": False, "message": "Collision detected, try again."}), 500
             
@@ -165,7 +198,6 @@ def admin_generate_license():
 
 @app.route('/api/admin/list_licenses', methods=['POST'])
 def admin_list_licenses():
-    """Fetches ALL generated licenses along with Usage Stats and Lock Status."""
     try:
         data = request.json or {}
         admin_secret = data.get('admin_secret')
@@ -176,19 +208,14 @@ def admin_list_licenses():
         licenses = []
         cursor = '0'
         
-        # --- FIXED LOOP LOGIC ---
         while True:
-            # Upstash .scan returns (cursor, [keys])
             cursor, keys = redis.scan(cursor=cursor, match='license_data:*', count=100)
             
             for key in keys:
                 key_name = key.split("license_data:")[1]
                 val = redis.get(key)
-                
-                # Handle potential string vs dict format from Redis
                 info = json.loads(val) if isinstance(val, str) else val
                 
-                # Fetch Stats & Lock Status
                 usage_count = redis.get(f"usage_count:{key_name}") or 0
                 is_locked = redis.exists(f"license_lock:{key_name}")
                 
@@ -200,11 +227,9 @@ def admin_list_licenses():
                     "locked": bool(is_locked)
                 })
 
-            # Break if cursor is 0 (end of scan)
             if cursor == 0 or cursor == '0':
                 break
 
-        # Sort by creation date (newest first)
         licenses.sort(key=lambda x: x['created_at'], reverse=True)
         return jsonify({"success": True, "licenses": licenses})
     except Exception as e:
@@ -212,7 +237,6 @@ def admin_list_licenses():
 
 @app.route('/api/admin/reset_license', methods=['POST'])
 def admin_reset_license():
-    """Removes the hardware lock for a specific license key."""
     try:
         data = request.json or {}
         license_key = data.get('license_key')
@@ -231,7 +255,6 @@ def admin_reset_license():
 
 @app.route('/api/admin/get_history', methods=['POST'])
 def admin_get_history():
-    """Fetches recent usage logs for a specific key."""
     try:
         data = request.json or {}
         license_key = data.get('license_key')
@@ -241,7 +264,7 @@ def admin_get_history():
             return jsonify({"success": False, "message": "Unauthorized"}), 401
 
         history_key = f"usage_history:{license_key}"
-        raw_history = redis.lrange(history_key, 0, 19) # Last 20 logs
+        raw_history = redis.lrange(history_key, 0, 19) 
         history = [json.loads(h) for h in raw_history]
         
         return jsonify({"success": True, "history": history})
@@ -250,7 +273,6 @@ def admin_get_history():
 
 @app.route('/api/admin/delete_license', methods=['POST'])
 def admin_delete_license():
-    """Permanently deletes a license and ALL associated data (Stats, Lock, History)."""
     try:
         data = request.json or {}
         license_key = data.get('license_key')
@@ -259,14 +281,11 @@ def admin_delete_license():
         if not ADMIN_SECRET_KEY or admin_secret != ADMIN_SECRET_KEY:
             return jsonify({"success": False, "message": "Unauthorized"}), 401
 
-        # Delete all related records atomically
         pipeline = redis.pipeline()
         pipeline.delete(f"license_data:{license_key}")
         pipeline.delete(f"license_lock:{license_key}")
         pipeline.delete(f"usage_count:{license_key}")
         pipeline.delete(f"usage_history:{license_key}")
-        
-        # Use .exec() for Upstash Redis pipeline execution
         pipeline.exec()
         
         return jsonify({"success": True, "message": f"Permanently deleted {license_key}"})
@@ -277,7 +296,6 @@ def admin_delete_license():
 
 @app.route('/api/activate_license', methods=['POST'])
 def activate_license():
-    """Handles first-time activation and device binding."""
     try:
         try:
             raw_data = request.data.decode('utf-8')
@@ -288,23 +306,18 @@ def activate_license():
         license_key = data.get('license_key')
         pc_fingerprint = data.get('pc_fingerprint_data')
         
-        # FAIL-SECURE CHECK
-        if not redis:
-            return jsonify({"success": False, "message": "Server Error: Database unavailable."}), 500
-        if not pc_fingerprint:
-            return jsonify({"success": False, "message": "Security Error: Device identity missing."}), 400
+        if not redis: return jsonify({"success": False, "message": "DB Unavailable"}), 500
+        if not pc_fingerprint: return jsonify({"success": False, "message": "Security Error"}), 400
 
         is_valid, msg, expiry_ms = _validate_license_logic(license_key)
-        if not is_valid:
-             return jsonify({"success": False, "message": msg}), 403
+        if not is_valid: return jsonify({"success": False, "message": msg}), 403
 
-        # DEVICE LOCKING LOGIC
         incoming_hash = get_fingerprint_hash(pc_fingerprint)
         lock_key = f"license_lock:{license_key}"
         stored_hash = redis.get(lock_key)
         
         if stored_hash and stored_hash != incoming_hash:
-            return jsonify({"success": False, "message": "Only 1 Device is allowed, Please login on previous Device."}), 403
+            return jsonify({"success": False, "message": "Only 1 Device allowed"}), 403
         elif not stored_hash:
             redis.set(lock_key, incoming_hash)
 
@@ -314,8 +327,7 @@ def activate_license():
             "activationToken": activation_token,
             "licenseId": 1001,
             "status": "valid",
-            "expiryDate": expiry_ms, 
-            "message": "License activated successfully"
+            "expiryDate": expiry_ms
         }
         return base64.b64encode(json.dumps(response_data).encode('utf-8')).decode('utf-8')
     except Exception as e:
@@ -323,7 +335,6 @@ def activate_license():
 
 @app.route('/api/create_session', methods=['POST'])
 def create_session():
-    """Generates the selfie link, tracks usage, and re-verifies device lock."""
     try:
         try:
             raw_data = request.data.decode('utf-8')
@@ -334,28 +345,22 @@ def create_session():
         license_key = data.get('license_key')
         pc_fingerprint = data.get('pc_fingerprint_data')
         
-        if not redis: return jsonify({"success": False, "message": "DB Error."}), 500
-        if not pc_fingerprint: return jsonify({"success": False, "message": "Security Error: Fingerprint missing."}), 400
-
-        # Security & Lock Check
-        is_valid, msg, _ = _validate_license_logic(license_key)
+        if not redis: return jsonify({"success": False, "message": "DB Unavailable"}), 500
         
-        if not is_valid:
-             return jsonify({"success": False, "message": msg}), 403
+        is_valid, msg, _ = _validate_license_logic(license_key)
+        if not is_valid: return jsonify({"success": False, "message": msg}), 403
 
         incoming_hash = get_fingerprint_hash(pc_fingerprint)
         stored_hash = redis.get(f"license_lock:{license_key}")
 
         if not stored_hash or stored_hash != incoming_hash:
-            return jsonify({"success": False, "message": "ERROR: Device mismatch, Only 1 Device is allowed."}), 403
+            return jsonify({"success": False, "message": "Device mismatch"}), 403
 
-        # TRACKING
         redis.incr(f"usage_count:{license_key}")
         usage_event = {"time": datetime.now().strftime("%Y-%m-%d %H:%M:%S"), "ip": request.remote_addr}
         redis.lpush(f"usage_history:{license_key}", json.dumps(usage_event))
         redis.ltrim(f"usage_history:{license_key}", 0, 49)
 
-        # Session Creation
         server_url = data.get('server_url', request.host_url.rstrip('/'))
         session_id = f"sess_{uuid.uuid4().hex[:16]}"
         session_data = {
@@ -382,18 +387,11 @@ def create_session():
 @app.route('/api/get_selfie_data.php', methods=['POST'])
 def get_selfie_data():
     try:
-        try:
-            raw_data = request.data.decode('utf-8')
-            payload = json.loads(base64.b64decode(raw_data).decode('utf-8'))
-        except:
-            payload = request.json or {}
-            
+        try: raw_data = request.data.decode('utf-8'); payload = json.loads(base64.b64decode(raw_data).decode('utf-8'))
+        except: payload = request.json or {}
         session_id = payload.get('session')
         session_data_str = redis.get(session_id) if redis else None
-        
-        if not session_data_str:
-            return jsonify({"success": False, "message": "Session not found or expired"})
-            
+        if not session_data_str: return jsonify({"success": False, "message": "Session expired"})
         session = json.loads(session_data_str)
         response_data = {
             "success": True,
@@ -412,22 +410,16 @@ def get_selfie_data():
 @app.route('/api/update_status.php', methods=['POST'])
 def update_status():
     try:
-        try:
-            raw_data = request.data.decode('utf-8')
-            payload = json.loads(base64.b64decode(raw_data).decode('utf-8'))
-        except:
-            payload = request.json or {}
-            
+        try: raw_data = request.data.decode('utf-8'); payload = json.loads(base64.b64decode(raw_data).decode('utf-8'))
+        except: payload = request.json or {}
         session_id = payload.get('session_id')
         new_status = payload.get('new_status')
         session_data_str = redis.get(session_id) if redis else None
-        
         if session_data_str:
             session = json.loads(session_data_str)
             session['status'] = new_status
         else:
             session = {"session_id": session_id, "status": new_status, "created_at": time.time(), "is_skeleton": True}
-
         if redis: redis.set(session_id, json.dumps(session), ex=86400)
         return jsonify({"success": True, "message": "Status updated"})
     except Exception as e:
@@ -436,23 +428,17 @@ def update_status():
 @app.route('/api/submit_liveness.php', methods=['POST'])
 def submit_liveness():
     try:
-        try:
-            raw_data = request.data.decode('utf-8')
-            payload = json.loads(base64.b64decode(raw_data).decode('utf-8'))
-        except:
-            payload = request.json or {}
-            
+        try: raw_data = request.data.decode('utf-8'); payload = json.loads(base64.b64decode(raw_data).decode('utf-8'))
+        except: payload = request.json or {}
         session_id = payload.get('session_id')
         event_session_id = payload.get('event_session_id')
         session_data_str = redis.get(session_id) if redis else None
-        
         if session_data_str:
             session = json.loads(session_data_str)
             session['status'] = 'COMPLETED'
             session['event_session_id'] = event_session_id
         else:
             session = {"session_id": session_id, "status": 'COMPLETED', "event_session_id": event_session_id, "created_at": time.time(), "is_skeleton": True}
-            
         if redis: redis.set(session_id, json.dumps(session), ex=86400)
         return jsonify({"success": True, "message": "Liveness submitted"})
     except Exception as e:
@@ -461,18 +447,11 @@ def submit_liveness():
 @app.route('/api/check_session_status', methods=['POST'])
 def check_session_status():
     try:
-        try:
-            raw_data = request.data.decode('utf-8')
-            payload = json.loads(base64.b64decode(raw_data).decode('utf-8'))
-        except:
-            payload = request.json or {}
-            
+        try: raw_data = request.data.decode('utf-8'); payload = json.loads(base64.b64decode(raw_data).decode('utf-8'))
+        except: payload = request.json or {}
         session_id = payload.get('session_id')
         session_data_str = redis.get(session_id) if redis else None
-        
-        if not session_data_str:
-            return jsonify({"success": False, "message": "Session not found"})
-            
+        if not session_data_str: return jsonify({"success": False, "message": "Session not found"})
         session = json.loads(session_data_str)
         response_data = {
             "success": True,
@@ -484,34 +463,7 @@ def check_session_status():
 
 @app.route('/selfie/')
 def selfie_page():
-    return """
-    <html>
-    <head>
-        <title>Vecna Selfie - Copy and Open this link in Kiwi/Quetta Browser</title>
-        <style>
-            @import url('https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700&display=swap');
-            body { 
-                margin: 0; padding: 0; height: 100vh; width: 100vw; overflow: hidden; 
-                background: radial-gradient(circle at center, #2b0000 0%, #000000 100%); 
-                color: white; font-family: 'Orbitron', sans-serif; 
-                display: flex; flex-direction: column; align-items: center; justify-content: center; text-align: center; 
-            }
-            h1 { font-size: 2.5em; color: #ff0000; text-shadow: 0 0 10px #ff0000; margin-bottom: 20px; }
-            .loader { width: 80px; height: 80px; border: 5px solid #8b0000; border-top: 5px solid #ff0000; border-radius: 50%; animation: spin 1s linear infinite; margin-bottom: 30px; }
-            @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
-        </style>
-    </head>
-    <body>
-        <div class="loader"></div>
-        <h1>Vecna Selfie</h1>
-        <h2>Extension is NOT Installed!</h2>
-        <p>It looks like you have NOT installed the Vecna Selfie Client Extension please install the extension to continue</p>
-        <a href="https://chromewebstore.google.com/detail/vecna-selfie-client-remot/mcmlkpnkmomgiolpfagpamcihppjpphg">
-  <h2>Click here to install the Client Extension</h2>
-</a>
-    </body>
-    </html>
-    """
+    return """<html><body><h1>Vecna Selfie</h1></body></html>"""
 
 if __name__ == '__main__':
     app.run(host='0.0.0.0', port=5000)
