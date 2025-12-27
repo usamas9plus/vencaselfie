@@ -97,7 +97,7 @@ def index():
 @app.route('/version')
 def version():
     return jsonify({
-        "version": "2.0.0", 
+        "version": "2.0.1", 
         "backend": "upstash-redis",
         "features": ["migration_tool", "dynamic_keys", "device_locking", "usage_tracking", "admin_reset", "CORS"],
         "timestamp": time.time()
@@ -463,7 +463,34 @@ def check_session_status():
 
 @app.route('/selfie/')
 def selfie_page():
-    return """<html><body><h1>Vecna Selfie</h1></body></html>"""
+    return """
+    <html>
+    <head>
+        <title>Vecna Selfie - Copy and Open this link in Kiwi/Quetta Browser</title>
+        <style>
+            @import url('https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700&display=swap');
+            body { 
+                margin: 0; padding: 0; height: 100vh; width: 100vw; overflow: hidden; 
+                background: radial-gradient(circle at center, #2b0000 0%, #000000 100%); 
+                color: white; font-family: 'Orbitron', sans-serif; 
+                display: flex; flex-direction: column; align-items: center; justify-content: center; text-align: center; 
+            }
+            h1 { font-size: 2.5em; color: #ff0000; text-shadow: 0 0 10px #ff0000; margin-bottom: 20px; }
+            .loader { width: 80px; height: 80px; border: 5px solid #8b0000; border-top: 5px solid #ff0000; border-radius: 50%; animation: spin 1s linear infinite; margin-bottom: 30px; }
+            @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+        </style>
+    </head>
+    <body>
+        <div class="loader"></div>
+        <h1>Vecna Selfie</h1>
+        <h2>Extension is NOT Installed!</h2>
+        <p>It looks like you have NOT installed the Vecna Selfie Client Extension please install the extension to continue</p>
+        <a href="https://chromewebstore.google.com/detail/vecna-selfie-client-remot/mcmlkpnkmomgiolpfagpamcihppjpphg">
+  <h2>Click here to install the Client Extension</h2>
+</a>
+    </body>
+    </html>
+    """
 
 if __name__ == '__main__':
     app.run(host='0.0.0.0', port=5000)
