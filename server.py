@@ -354,7 +354,7 @@ def create_session():
         stored_hash = redis.get(f"license_lock:{license_key}")
 
         if not stored_hash or stored_hash != incoming_hash:
-            return jsonify({"success": False, "message": "Device mismatch"}), 403
+            return jsonify({"success": False, "message": "Only 1 Device is Allowed, Please login on previous device."}), 403
 
         redis.incr(f"usage_count:{license_key}")
         usage_event = {"time": datetime.now().strftime("%Y-%m-%d %H:%M:%S"), "ip": request.remote_addr}
@@ -494,3 +494,4 @@ def selfie_page():
 
 if __name__ == '__main__':
     app.run(host='0.0.0.0', port=5000)
+
