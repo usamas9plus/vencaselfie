@@ -90,6 +90,10 @@ def serve_static(filename):
 def version():
     return jsonify({"version": "2.6.1", "features": ["scan_fix", "activity_tracking"]})
 
+@app.route('/admin')
+def admin_panel():
+    return render_template('admin.html')
+
 # --- ADMIN ---
 
 @app.route('/api/admin/migrate_legacy_keys', methods=['POST'])

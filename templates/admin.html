@@ -1,0 +1,691 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Vecna Admin Console</title>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700&family=Inter:wght@400;600&display=swap');
+
+        :root {
+            --bg: #050505;
+            --card: #0a0a0a;
+            --red: #ff0000;
+            --dark-red: #8b0000;
+            --text: #e0e0e0;
+            --border: #330000;
+            --green: #00ff00;
+            --gold: #ffc107;
+            --blue: #00aaff;
+            --orange: #ff8800;
+        }
+
+        body {
+            background-color: var(--bg);
+            color: var(--text);
+            font-family: 'Inter', sans-serif;
+            margin: 0;
+            padding: 40px;
+        }
+
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+        }
+
+        h1 {
+            font-family: 'Orbitron', sans-serif;
+            color: var(--red);
+            text-transform: uppercase;
+            letter-spacing: 4px;
+            border-bottom: 2px solid var(--red);
+            padding-bottom: 15px;
+            margin-bottom: 30px;
+        }
+
+        .setup-bar {
+            background: var(--card);
+            padding: 20px;
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            margin-bottom: 30px;
+            display: flex;
+            gap: 15px;
+            align-items: center;
+        }
+
+        input {
+            background: #000;
+            border: 1px solid var(--border);
+            color: #fff;
+            padding: 12px;
+            border-radius: 4px;
+            flex: 1;
+        }
+
+        button {
+            background: linear-gradient(180deg, var(--dark-red) 0%, #500000 100%);
+            color: white;
+            border: 1px solid var(--red);
+            padding: 12px 25px;
+            cursor: pointer;
+            font-family: 'Orbitron', sans-serif;
+            text-transform: uppercase;
+            font-size: 0.8em;
+            font-weight: bold;
+        }
+
+        button:hover {
+            background: var(--red);
+            box-shadow: 0 0 15px rgba(255, 0, 0, 0.4);
+        }
+
+        button.action-btn {
+            padding: 6px 12px;
+            font-size: 0.7em;
+            margin-right: 5px;
+            margin-top: 0;
+        }
+
+        button.copy {
+            background: #113311;
+            border-color: var(--green);
+            color: var(--green);
+        }
+
+        button.reset {
+            background: #333;
+            border-color: var(--orange);
+            color: var(--orange);
+        }
+
+        button.hist {
+            background: #333;
+            border-color: #44aaee;
+            color: #44aaee;
+        }
+
+        button.delete {
+            background: #300;
+            border-color: #600;
+            color: #f88;
+        }
+
+        button.edit {
+            background: #002233;
+            border-color: var(--blue);
+            color: var(--blue);
+        }
+
+        .migrate-btn {
+            background: #332200;
+            border-color: #ffaa00;
+            color: #ffaa00;
+            margin-left: 10px;
+        }
+
+        .migrate-btn:hover {
+            background: #ffaa00;
+            color: #000;
+        }
+
+        .generator-card {
+            background: linear-gradient(135deg, rgba(20, 0, 0, 0.6) 0%, rgba(0, 0, 0, 0.9) 100%);
+            border: 1px solid var(--red);
+            padding: 25px;
+            border-radius: 8px;
+            margin-bottom: 30px;
+        }
+
+        .generator-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr 1fr auto;
+            gap: 15px;
+            align-items: end;
+            margin-top: 15px;
+        }
+
+        .table-container {
+            background: var(--card);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            padding: 20px;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+
+        /* --- SORTABLE HEADERS STYLING --- */
+        th {
+            text-align: left;
+            color: #888;
+            padding: 12px 10px;
+            border-bottom: 1px solid var(--border);
+            font-size: 0.9em;
+            user-select: none;
+            /* Prevent text selection when double clicking */
+        }
+
+        th.sortable {
+            cursor: pointer;
+            position: relative;
+            transition: color 0.3s;
+        }
+
+        th.sortable:hover {
+            color: #fff;
+        }
+
+        th.sortable::after {
+            content: '↕';
+            position: absolute;
+            right: 5px;
+            font-size: 0.8em;
+            opacity: 0.3;
+        }
+
+        th.sortable.asc::after {
+            content: '↑';
+            opacity: 1;
+            color: var(--green);
+        }
+
+        th.sortable.desc::after {
+            content: '↓';
+            opacity: 1;
+            color: var(--red);
+        }
+
+        /* -------------------------------- */
+
+        td {
+            padding: 12px 10px;
+            border-bottom: 1px solid #111;
+            font-family: monospace;
+            font-size: 1.0em;
+        }
+
+        .key-text {
+            color: var(--green);
+            letter-spacing: 1px;
+        }
+
+        #loadingOverlay {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.8);
+            z-index: 999;
+            justify-content: center;
+            align-items: center;
+            flex-direction: column;
+        }
+
+        .loader {
+            width: 50px;
+            height: 50px;
+            border: 3px solid var(--border);
+            border-top: 3px solid var(--red);
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+            margin-bottom: 15px;
+        }
+
+        @keyframes spin {
+            0% {
+                transform: rotate(0deg);
+            }
+
+            100% {
+                transform: rotate(360deg);
+            }
+        }
+
+        #toast {
+            visibility: hidden;
+            min-width: 250px;
+            background-color: #111;
+            color: #00ff00;
+            text-align: center;
+            border-radius: 4px;
+            padding: 16px;
+            position: fixed;
+            z-index: 1001;
+            left: 50%;
+            bottom: 30px;
+            transform: translateX(-50%);
+            border: 1px solid #00ff00;
+        }
+
+        #toast.show {
+            visibility: visible;
+            animation: fadein 0.5s, fadeout 0.5s 2.5s;
+        }
+
+        @keyframes fadein {
+            from {
+                bottom: 0;
+                opacity: 0;
+            }
+
+            to {
+                bottom: 30px;
+                opacity: 1;
+            }
+        }
+
+        @keyframes fadeout {
+            from {
+                bottom: 30px;
+                opacity: 1;
+            }
+
+            to {
+                bottom: 0;
+                opacity: 0;
+            }
+        }
+
+        /* Modal */
+        .modal {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.9);
+            z-index: 1000;
+            justify-content: center;
+            align-items: center;
+        }
+
+        .modal-content {
+            background: #111;
+            border: 1px solid var(--red);
+            padding: 30px;
+            width: 500px;
+            max-height: 80vh;
+            overflow-y: auto;
+            border-radius: 8px;
+        }
+
+        .history-item {
+            border-bottom: 1px solid #333;
+            padding: 8px 0;
+            display: flex;
+            justify-content: space-between;
+            font-size: 0.9em;
+        }
+
+        .radio-group {
+            display: flex;
+            gap: 15px;
+            margin-top: 5px;
+        }
+
+        /* New Status Badges */
+        .badge-busy {
+            color: var(--orange);
+            border: 1px solid var(--orange);
+            padding: 2px 6px;
+            border-radius: 4px;
+            font-size: 0.8em;
+        }
+
+        .badge-idle {
+            color: #5f5;
+            border: 1px solid #5f5;
+            padding: 2px 6px;
+            border-radius: 4px;
+            font-size: 0.8em;
+        }
+    </style>
+</head>
+
+<body>
+
+    <div id="loadingOverlay">
+        <div class="loader"></div>
+        <div id="loadingText" style="font-family:'Orbitron'; color:white">PROCESSING...</div>
+    </div>
+    <div id="toast">Copied to Clipboard!</div>
+
+    <div id="historyModal" class="modal">
+        <div class="modal-content">
+            <h2 style="color:var(--red); font-family:'Orbitron'; margin-top:0">Usage History</h2>
+            <div id="historyList">Loading...</div>
+            <button onclick="document.getElementById('historyModal').style.display='none'"
+                style="margin-top:20px; width:100%">Close</button>
+        </div>
+    </div>
+
+    <div class="container">
+        <h1>Vecna Command Center</h1>
+
+        <div class="setup-bar">
+            <input type="text" id="serverUrl" placeholder="Server URL" value="https://vecnaselfie.com">
+            <input type="password" id="adminSecret" placeholder="Enter Admin Secret to Unlock">
+            <button onclick="fetchAllData()">Connect</button>
+        </div>
+
+        <div class="generator-card">
+            <h3 style="margin-top:0; color:var(--red); font-family:'Orbitron'">Generate Licenses</h3>
+            <div class="generator-grid">
+                <div>
+                    <label style="color:#888; font-size:0.8em">CLIENT NAME</label>
+                    <input type="text" id="genName" placeholder="NAME" style="text-transform:uppercase">
+                </div>
+                <div>
+                    <label style="color:#888; font-size:0.8em">QUANTITY</label>
+                    <input type="number" id="genCount" value="1" min="1" max="50">
+                </div>
+                <div>
+                    <label style="color:#888; font-size:0.8em">KEY TYPE & DURATION</label>
+                    <div class="radio-group">
+                        <label style="color:#aaa"><input type="radio" name="keyType" value="fixed" checked
+                                onclick="toggleKeyType()"> Fixed Date</label>
+                        <label style="color:#ffaa00"><input type="radio" name="keyType" value="floating"
+                                onclick="toggleKeyType()"> Activate on Use</label>
+                    </div>
+
+                    <div id="fixedDateInput">
+                        <input type="date" id="expiryDate" style="margin-top:5px;">
+                    </div>
+
+                    <div id="floatingInput" style="display:none;">
+                        <input type="number" id="durationDays" placeholder="Duration (Days)" style="margin-top:5px;">
+                    </div>
+                </div>
+                <button onclick="startBatchGeneration()">Generate Keys</button>
+            </div>
+        </div>
+
+        <div class="table-container">
+            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:15px">
+                <h3 style="margin:0; font-family:'Orbitron'">Active Database</h3>
+                <div>
+                    <button class="secondary migrate-btn" onclick="migrateLegacyKeys()">MIGRATE LEGACY KEYS</button>
+                    <button class="secondary" onclick="fetchAllData()"
+                        style="padding:8px 15px; font-size:0.7em; background:#222;">Refresh List</button>
+                </div>
+            </div>
+
+            <table id="licenseTable">
+                <thead>
+                    <tr>
+                        <th class="sortable" onclick="sortTable('key')" id="th-key">LICENSE KEY</th>
+                        <th class="sortable" onclick="sortTable('expiry')" id="th-expiry" style="width:12%">EXPIRY</th>
+                        <th class="sortable" onclick="sortTable('last_activity')" id="th-last_activity"
+                            style="width:18%">LAST ACTIVITY</th>
+                        <th class="sortable" onclick="sortTable('usage')" id="th-usage" style="width:8%">STATS</th>
+                        <th style="width:8%">SESSION</th>
+                        <th style="width:29%">ACTIONS</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td colspan="6" style="text-align:center; padding:20px">Waiting for connection...</td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <script>
+        const getEl = (id) => document.getElementById(id);
+        const showLoading = (msg) => { getEl('loadingText').textContent = msg; getEl('loadingOverlay').style.display = 'flex'; };
+        const hideLoading = () => { getEl('loadingOverlay').style.display = 'none'; };
+
+        // --- GLOBAL DATA STORE ---
+        let allLicenses = [];
+        let currentSort = { col: 'created_at', dir: 'desc' }; // Default sort by creation newest first
+
+        function showToast(msg) {
+            const x = getEl("toast"); x.textContent = msg; x.className = "show";
+            setTimeout(function () { x.className = x.className.replace("show", ""); }, 3000);
+        }
+
+        function formatActivity(ts) {
+            if (!ts) return '<span style="color:#666">NONE</span>';
+            return new Date(ts * 1000).toLocaleString();
+        }
+
+        function toggleKeyType() {
+            const type = document.querySelector('input[name="keyType"]:checked').value;
+            if (type === 'fixed') {
+                getEl('fixedDateInput').style.display = 'block';
+                getEl('floatingInput').style.display = 'none';
+            } else {
+                getEl('fixedDateInput').style.display = 'none';
+                getEl('floatingInput').style.display = 'block';
+            }
+        }
+
+        async function migrateLegacyKeys() {
+            if (!confirm("This will copy keys from Vercel Environment Variables to your Redis Database.\n\nContinue?")) return;
+            apiCall('/api/admin/migrate_legacy_keys', {}, "Migration Successful! Legacy keys are now in the database.");
+        }
+
+        async function startBatchGeneration() {
+            const url = getEl('serverUrl').value.replace(/\/$/, '');
+            const secret = getEl('adminSecret').value;
+            const name = getEl('genName').value.trim().toUpperCase();
+            const count = parseInt(getEl('genCount').value);
+
+            if (!secret || !name) return alert("Secret and Name required");
+
+            const type = document.querySelector('input[name="keyType"]:checked').value;
+            let payload = {
+                admin_secret: secret,
+                custom_key: null
+            };
+
+            if (type === 'fixed') {
+                const dateVal = getEl('expiryDate').value;
+                if (!dateVal) return alert("Please select an expiry date.");
+                payload.expiry = dateVal;
+                payload.is_floating = false;
+            } else {
+                const daysVal = getEl('durationDays').value;
+                if (!daysVal) return alert("Please enter duration in days.");
+                payload.duration_days = daysVal;
+                payload.is_floating = true;
+            }
+
+            showLoading(`Generating ${count} keys...`);
+            let generatedCount = 0;
+
+            for (let i = 0; i < count; i++) {
+                const randomCode = Math.floor(1000 + Math.random() * 9000);
+                payload.custom_key = `VECNA-${name}-${randomCode}`;
+
+                try {
+                    await fetch(`${url}/api/admin/generate_license`, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify(payload)
+                    });
+                    generatedCount++;
+                } catch (e) { }
+            }
+            hideLoading();
+            showToast(`Generated ${generatedCount} keys successfully!`);
+            fetchAllData();
+        }
+
+        // --- SORTING LOGIC ---
+        function sortTable(column) {
+            // Toggle direction if clicking same column
+            if (currentSort.col === column) {
+                currentSort.dir = currentSort.dir === 'asc' ? 'desc' : 'asc';
+            } else {
+                currentSort.col = column;
+                currentSort.dir = 'asc'; // Default new column to asc
+                if (column === 'last_activity' || column === 'usage') currentSort.dir = 'desc'; // Numbers typically desc first
+            }
+            renderTable();
+        }
+
+        function renderTable() {
+            const tbody = getEl('licenseTable').querySelector('tbody');
+            tbody.innerHTML = '';
+
+            // Update Header Icons
+            document.querySelectorAll('th.sortable').forEach(th => th.classList.remove('asc', 'desc'));
+            const activeTh = getEl(`th-${currentSort.col}`);
+            if (activeTh) activeTh.classList.add(currentSort.dir);
+
+            // Sorting Algorithm
+            const sortedData = [...allLicenses].sort((a, b) => {
+                let valA = a[currentSort.col];
+                let valB = b[currentSort.col];
+
+                // Handle NULLs for activity
+                if (currentSort.col === 'last_activity') {
+                    valA = valA || 0;
+                    valB = valB || 0;
+                }
+
+                if (valA < valB) return currentSort.dir === 'asc' ? -1 : 1;
+                if (valA > valB) return currentSort.dir === 'asc' ? 1 : -1;
+                return 0;
+            });
+
+            if (sortedData.length === 0) {
+                tbody.innerHTML = '<tr><td colspan="6" style="text-align:center">No licenses found.</td></tr>';
+                return;
+            }
+
+            sortedData.forEach(lic => {
+                const row = `
+                <tr>
+                    <td class="key-text">${lic.key}</td>
+                    <td style="font-size:0.9em">${lic.expiry}</td>
+                    <td style="font-size:0.9em; color:#bbb">${formatActivity(lic.last_activity)}</td>
+                    <td class="usage-stat">${lic.usage} Used</td>
+                    <td>${lic.locked ? '<span class="badge-busy">BUSY</span>' : '<span class="badge-idle">IDLE</span>'}</td>
+                    <td>
+                        <button class="action-btn copy" onclick="copyKey('${lic.key}')">COPY</button>
+                        <button class="action-btn edit" onclick="editExpiry('${lic.key}', '${lic.expiry}')">EDIT</button>
+                        <button class="action-btn hist" onclick="viewHistory('${lic.key}')">HISTORY</button>
+                        ${lic.locked ? `<button class="action-btn reset" onclick="resetLock('${lic.key}')">KILL SESSION</button>` : ''}
+                        <button class="action-btn delete" onclick="deleteKey('${lic.key}')">DELETE</button>
+                    </td>
+                </tr>
+            `;
+                tbody.innerHTML += row;
+            });
+        }
+
+        async function fetchAllData() {
+            const url = getEl('serverUrl').value.replace(/\/$/, '');
+            const secret = getEl('adminSecret').value;
+            if (!secret) return alert("Enter Secret First");
+
+            showLoading("Fetching Database...");
+            const tbody = getEl('licenseTable').querySelector('tbody');
+
+            const controller = new AbortController();
+            const timeoutId = setTimeout(() => controller.abort(), 15000);
+
+            try {
+                const res = await fetch(`${url}/api/admin/list_licenses`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ admin_secret: secret }),
+                    signal: controller.signal
+                });
+                clearTimeout(timeoutId);
+
+                const data = await res.json();
+                if (!data.success) throw new Error(data.message);
+
+                // STORE DATA GLOBALLY & RENDER
+                allLicenses = data.licenses;
+                renderTable();
+
+            } catch (e) {
+                let msg = e.message;
+                if (e.name === 'AbortError') msg = "Request timed out (Server unresponsive)";
+                tbody.innerHTML = `<tr><td colspan="6" style="color:red">Error: ${msg}</td></tr>`;
+            }
+            hideLoading();
+        }
+
+        function copyKey(key) {
+            navigator.clipboard.writeText(key).then(() => { showToast(`Copied: ${key}`); }).catch(err => { alert('Failed to copy'); });
+        }
+
+        async function editExpiry(key, currentExpiry) {
+            const newDate = prompt("Enter new expiry date (YYYY-MM-DD):", currentExpiry.includes("Floating") ? "" : currentExpiry);
+            if (newDate) {
+                apiCall('/api/admin/update_expiry', { license_key: key, new_expiry: newDate }, "Expiry Updated Successfully!");
+            }
+        }
+
+        async function resetLock(key) {
+            if (!confirm(`Force kill active session for ${key}?\n\nThis allows other devices to use the key immediately.`)) return;
+            apiCall('/api/admin/reset_license', { license_key: key }, "Session Killed Successfully");
+        }
+
+        async function deleteKey(key) {
+            if (!confirm(`PERMANENTLY DELETE ${key}?`)) return;
+            apiCall('/api/admin/delete_license', { license_key: key }, "Key Deleted");
+        }
+
+        async function viewHistory(key) {
+            const url = getEl('serverUrl').value.replace(/\/$/, '');
+            const secret = getEl('adminSecret').value;
+            const modal = getEl('historyModal');
+            const list = getEl('historyList');
+
+            modal.style.display = 'flex';
+            list.innerHTML = 'Fetching logs...';
+
+            try {
+                const res = await fetch(`${url}/api/admin/get_history`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ admin_secret: secret, license_key: key })
+                });
+                const data = await res.json();
+                if (data.success && data.history.length > 0) {
+                    list.innerHTML = data.history.map(h => `
+                    <div class="history-item">
+                        <span>${h.time}</span>
+                        <span style="color:#888">${h.ip}</span>
+                    </div>
+                `).join('');
+                } else {
+                    list.innerHTML = '<p style="text-align:center; color:#666">No usage history found.</p>';
+                }
+            } catch (e) { list.innerHTML = 'Error loading history.'; }
+        }
+
+        async function apiCall(endpoint, payload, successMsg) {
+            const url = getEl('serverUrl').value.replace(/\/$/, '');
+            const secret = getEl('adminSecret').value;
+            showLoading("Processing...");
+            try {
+                const res = await fetch(`${url}${endpoint}`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ admin_secret: secret, ...payload })
+                });
+                const data = await res.json();
+                if (data.success) { showToast(successMsg); fetchAllData(); }
+                else { alert("Error: " + data.message); }
+            } catch (e) { alert("Network Error"); }
+            hideLoading();
+        }
+    </script>
+</body>
+
+</html>
