@@ -169,22 +169,6 @@ nav {
     animation: heroPulse 3s ease-in-out infinite;
 }
 
-.hero::after {
-    content: '';
-    position: absolute;
-    top: 0;
-    left: 0;
-    right: 0;
-    bottom: 0;
-    background: repeating-linear-gradient(0deg,
-            transparent,
-            transparent 2px,
-            rgba(0, 0, 0, 0.15) 2px,
-            rgba(0, 0, 0, 0.15) 4px);
-    pointer-events: none;
-    z-index: 2;
-}
-
 @keyframes heroPulse {
 
     0%,
