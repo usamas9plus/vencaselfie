@@ -614,6 +614,67 @@ section h2 span {
     font-size: 0.9em;
 }
 
+/* Channel Links */
+.channel-links {
+    margin-top: 50px;
+    text-align: center;
+}
+
+.channel-links h3 {
+    font-family: 'Orbitron', sans-serif;
+    color: #fff;
+    font-size: 1.3em;
+    margin-bottom: 25px;
+    text-transform: uppercase;
+    letter-spacing: 2px;
+}
+
+.channel-grid {
+    display: flex;
+    justify-content: center;
+    gap: 25px;
+    flex-wrap: wrap;
+}
+
+.channel-card {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 15px 30px;
+    border-radius: 50px;
+    text-decoration: none;
+    font-weight: 600;
+    font-size: 1em;
+    transition: all 0.3s ease;
+    border: 2px solid transparent;
+}
+
+.channel-card svg {
+    flex-shrink: 0;
+}
+
+.channel-card.whatsapp {
+    background: linear-gradient(135deg, #25D366 0%, #128C7E 100%);
+    color: #fff;
+}
+
+.channel-card.whatsapp:hover {
+    transform: translateY(-3px);
+    box-shadow: 0 10px 30px rgba(37, 211, 102, 0.4);
+    border-color: #25D366;
+}
+
+.channel-card.telegram {
+    background: linear-gradient(135deg, #0088cc 0%, #0066aa 100%);
+    color: #fff;
+}
+
+.channel-card.telegram:hover {
+    transform: translateY(-3px);
+    box-shadow: 0 10px 30px rgba(0, 136, 204, 0.4);
+    border-color: #0088cc;
+}
+
 /* Footer */
 footer {
     text-align: center;
