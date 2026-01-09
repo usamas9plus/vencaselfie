@@ -214,29 +214,6 @@ nav {
     margin-bottom: 10px;
     text-shadow: 0 0 30px var(--glow-color), 0 0 60px rgba(255, 0, 0, 0.4), 0 0 100px rgba(255, 0, 0, 0.2);
     animation: intenseFlicker 2s infinite;
-    position: relative;
-}
-
-.hero h1::before {
-    content: 'VECNA SELFIE';
-    position: absolute;
-    top: 0;
-    left: 2px;
-    color: #ff0000;
-    opacity: 0.5;
-    animation: glitch1 0.3s infinite;
-    clip-path: inset(0 0 50% 0);
-}
-
-.hero h1::after {
-    content: 'VECNA SELFIE';
-    position: absolute;
-    top: 0;
-    left: -2px;
-    color: #8b0000;
-    opacity: 0.5;
-    animation: glitch2 0.3s infinite;
-    clip-path: inset(50% 0 0 0);
 }
 
 @keyframes intenseFlicker {
@@ -267,47 +244,158 @@ nav {
     }
 }
 
-@keyframes glitch1 {
-
-    0%,
-    100% {
-        transform: translate(0);
-    }
-
-    20% {
-        transform: translate(-2px, 1px);
-    }
-
-    40% {
-        transform: translate(2px, -1px);
-    }
-
-    60% {
-        transform: translate(-1px, 2px);
-    }
-
-    80% {
-        transform: translate(1px, -2px);
-    }
+/* Upside Down Floating Particles */
+.particles {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    pointer-events: none;
+    z-index: 998;
+    overflow: hidden;
 }
 
-@keyframes glitch2 {
+.particle {
+    position: absolute;
+    width: 4px;
+    height: 4px;
+    background: rgba(255, 50, 50, 0.6);
+    border-radius: 50%;
+    box-shadow: 0 0 10px rgba(255, 0, 0, 0.8), 0 0 20px rgba(255, 0, 0, 0.4);
+    animation: floatUp 15s linear infinite;
+}
 
-    0%,
-    100% {
-        transform: translate(0);
+.particle:nth-child(1) {
+    left: 5%;
+    animation-delay: 0s;
+    animation-duration: 12s;
+}
+
+.particle:nth-child(2) {
+    left: 15%;
+    animation-delay: 2s;
+    animation-duration: 18s;
+    width: 3px;
+    height: 3px;
+}
+
+.particle:nth-child(3) {
+    left: 25%;
+    animation-delay: 4s;
+    animation-duration: 14s;
+}
+
+.particle:nth-child(4) {
+    left: 35%;
+    animation-delay: 1s;
+    animation-duration: 16s;
+    width: 5px;
+    height: 5px;
+}
+
+.particle:nth-child(5) {
+    left: 45%;
+    animation-delay: 3s;
+    animation-duration: 13s;
+}
+
+.particle:nth-child(6) {
+    left: 55%;
+    animation-delay: 5s;
+    animation-duration: 17s;
+    width: 3px;
+    height: 3px;
+}
+
+.particle:nth-child(7) {
+    left: 65%;
+    animation-delay: 0.5s;
+    animation-duration: 15s;
+}
+
+.particle:nth-child(8) {
+    left: 75%;
+    animation-delay: 2.5s;
+    animation-duration: 19s;
+    width: 6px;
+    height: 6px;
+}
+
+.particle:nth-child(9) {
+    left: 85%;
+    animation-delay: 4.5s;
+    animation-duration: 14s;
+}
+
+.particle:nth-child(10) {
+    left: 95%;
+    animation-delay: 1.5s;
+    animation-duration: 16s;
+    width: 4px;
+    height: 4px;
+}
+
+.particle:nth-child(11) {
+    left: 10%;
+    animation-delay: 6s;
+    animation-duration: 20s;
+}
+
+.particle:nth-child(12) {
+    left: 30%;
+    animation-delay: 7s;
+    animation-duration: 11s;
+    width: 5px;
+    height: 5px;
+}
+
+.particle:nth-child(13) {
+    left: 50%;
+    animation-delay: 8s;
+    animation-duration: 13s;
+}
+
+.particle:nth-child(14) {
+    left: 70%;
+    animation-delay: 9s;
+    animation-duration: 15s;
+    width: 3px;
+    height: 3px;
+}
+
+.particle:nth-child(15) {
+    left: 90%;
+    animation-delay: 10s;
+    animation-duration: 17s;
+}
+
+@keyframes floatUp {
+    0% {
+        bottom: -20px;
+        opacity: 0;
+        transform: translateX(0) scale(0.5);
     }
 
-    25% {
-        transform: translate(2px, 2px);
+    10% {
+        opacity: 0.8;
+        transform: translateX(10px) scale(1);
     }
 
     50% {
-        transform: translate(-2px, -1px);
+        opacity: 0.6;
+        transform: translateX(-15px) scale(0.8);
     }
 
-    75% {
-        transform: translate(1px, 1px);
+    90% {
+        opacity: 0.3;
+        transform: translateX(5px) scale(0.6);
+    }
+
+    100% {
+        bottom: 100vh;
+        opacity: 0;
+        transform: translateX(-10px) scale(0.3);
     }
 }
 
