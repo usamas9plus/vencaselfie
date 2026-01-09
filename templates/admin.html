@@ -641,12 +641,23 @@
         <div class="table-container">
             <div class="table-header">
                 <h3>📋 License Database</h3>
-                <button class="secondary" onclick="fetchAllData()" style="padding:10px 20px">🔄 Refresh</button>
+                <div style="display: flex; gap: 10px;">
+                    <div id="bulkActions" style="display: none;">
+                        <span id="selectedCount" style="color: var(--green); margin-right: 15px;">0 selected</span>
+                        <button class="action-btn edit" onclick="bulkEditExpiry()" style="padding: 8px 15px;">✏️ Edit
+                            Selected</button>
+                        <button class="action-btn delete" onclick="bulkDelete()" style="padding: 8px 15px;">🗑️ Delete
+                            Selected</button>
+                    </div>
+                    <button class="secondary" onclick="fetchAllData()" style="padding:10px 20px">🔄 Refresh</button>
+                </div>
             </div>
 
             <table id="licenseTable">
                 <thead>
                     <tr>
+                        <th style="width: 40px;"><input type="checkbox" id="selectAll" onclick="toggleSelectAll()"
+                                title="Select All"></th>
                         <th class="sortable" onclick="sortTable('key')" id="th-key">License Key</th>
                         <th class="sortable" onclick="sortTable('expiry')" id="th-expiry">Expiry</th>
                         <th class="sortable" onclick="sortTable('last_activity')" id="th-last_activity">Last Activity
@@ -658,7 +669,7 @@
                 </thead>
                 <tbody>
                     <tr>
-                        <td colspan="6" style="text-align:center; padding:40px; color:#666">Enter admin secret and click
+                        <td colspan="7" style="text-align:center; padding:40px; color:#666">Enter admin secret and click
                             Connect</td>
                     </tr>
                 </tbody>
@@ -822,13 +833,14 @@
             });
 
             if (sortedData.length === 0) {
-                tbody.innerHTML = '<tr><td colspan="6" style="text-align:center; padding:40px; color:#666">No licenses found</td></tr>';
+                tbody.innerHTML = '<tr><td colspan="7" style="text-align:center; padding:40px; color:#666">No licenses found</td></tr>';
                 return;
             }
 
             sortedData.forEach(lic => {
                 const row = document.createElement('tr');
                 row.innerHTML = `
+                    <td><input type="checkbox" class="row-checkbox" data-key="${lic.key}" onclick="updateBulkActions()"></td>
                     <td class="key-text">${lic.key}</td>
                     <td>${lic.expiry}</td>
                     <td>${formatActivity(lic.last_activity)}</td>
@@ -844,6 +856,10 @@
                 `;
                 tbody.appendChild(row);
             });
+
+            // Reset select all checkbox
+            getEl('selectAll').checked = false;
+            updateBulkActions();
         }
 
         async function fetchAllData() {
@@ -875,7 +891,7 @@
             } catch (e) {
                 getEl('statusDot').classList.remove('connected');
                 getEl('statusText').textContent = 'Error';
-                tbody.innerHTML = `<tr><td colspan="6" style="color:var(--red); text-align:center; padding:40px">❌ ${e.message}</td></tr>`;
+                tbody.innerHTML = `<tr><td colspan=\"7\" style=\"color:var(--red); text-align:center; padding:40px\">❌ ${e.message}</td></tr>`;
             }
             hideLoading();
         }
@@ -943,6 +959,89 @@
                 else { alert("Error: " + data.message); }
             } catch (e) { alert("Network Error"); }
             hideLoading();
+        }
+
+        // === BULK SELECTION FUNCTIONS ===
+
+        function getSelectedKeys() {
+            const checkboxes = document.querySelectorAll('.row-checkbox:checked');
+            return Array.from(checkboxes).map(cb => cb.dataset.key);
+        }
+
+        function updateBulkActions() {
+            const selected = getSelectedKeys();
+            const bulkDiv = getEl('bulkActions');
+            const countSpan = getEl('selectedCount');
+
+            if (selected.length > 0) {
+                bulkDiv.style.display = 'flex';
+                bulkDiv.style.alignItems = 'center';
+                countSpan.textContent = `${selected.length} selected`;
+            } else {
+                bulkDiv.style.display = 'none';
+            }
+        }
+
+        function toggleSelectAll() {
+            const selectAll = getEl('selectAll').checked;
+            const checkboxes = document.querySelectorAll('.row-checkbox');
+            checkboxes.forEach(cb => cb.checked = selectAll);
+            updateBulkActions();
+        }
+
+        async function bulkDelete() {
+            const keys = getSelectedKeys();
+            if (keys.length === 0) return alert("No keys selected");
+
+            if (!confirm(`DELETE ${keys.length} license(s)?\\n\\n${keys.join('\\n')}`)) return;
+
+            showLoading(`Deleting ${keys.length} keys...`);
+            const url = getEl('serverUrl').value.replace(/\/$/, '');
+            const secret = getEl('adminSecret').value;
+            let deleted = 0;
+
+            for (const key of keys) {
+                try {
+                    await fetch(`${url}/api/admin/delete_license`, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ admin_secret: secret, license_key: key })
+                    });
+                    deleted++;
+                } catch (e) { }
+            }
+
+            hideLoading();
+            showToast(`🗑️ Deleted ${deleted} keys`);
+            fetchAllData();
+        }
+
+        async function bulkEditExpiry() {
+            const keys = getSelectedKeys();
+            if (keys.length === 0) return alert("No keys selected");
+
+            const newDate = prompt(`Set new expiry date for ${keys.length} license(s) (YYYY-MM-DD):`);
+            if (!newDate) return;
+
+            showLoading(`Updating ${keys.length} keys...`);
+            const url = getEl('serverUrl').value.replace(/\/$/, '');
+            const secret = getEl('adminSecret').value;
+            let updated = 0;
+
+            for (const key of keys) {
+                try {
+                    await fetch(`${url}/api/admin/update_expiry`, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ admin_secret: secret, license_key: key, new_expiry: newDate })
+                    });
+                    updated++;
+                } catch (e) { }
+            }
+
+            hideLoading();
+            showToast(`✅ Updated ${updated} keys to ${newDate}`);
+            fetchAllData();
         }
     </script>
 </body>
