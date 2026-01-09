@@ -30,7 +30,7 @@ body {
     overflow-x: hidden;
 }
 
-/* Stranger Things Vine Overlay */
+/* Stranger Things Vine Overlay - Static for performance */
 body::before {
     content: '';
     position: fixed;
@@ -40,6 +40,8 @@ body::before {
     bottom: 0;
     pointer-events: none;
     z-index: 1000;
+    will-change: auto;
+    transform: translateZ(0);
     background:
         /* Bottom left vines */
         url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 200 400'%3E%3Cpath d='M0,400 Q30,350 20,300 Q10,250 40,200 Q60,150 30,100 Q10,60 50,20 Q70,0 90,-20' fill='none' stroke='%23300000' stroke-width='8' opacity='0.7'/%3E%3Cpath d='M0,380 Q40,340 25,280 Q15,230 50,180 Q75,130 45,80 Q25,40 65,0' fill='none' stroke='%23200000' stroke-width='5' opacity='0.5'/%3E%3Cpath d='M20,400 Q60,360 45,310 Q35,260 70,210 Q95,160 65,110 Q45,70 85,30' fill='none' stroke='%23250000' stroke-width='6' opacity='0.6'/%3E%3C/svg%3E") bottom left/200px 400px no-repeat,
@@ -48,10 +50,9 @@ body::before {
         /* Top corners */
         url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 150 200'%3E%3Cpath d='M0,0 Q20,40 15,80 Q10,120 35,160 Q50,190 30,200' fill='none' stroke='%23280000' stroke-width='6' opacity='0.5'/%3E%3Cpath d='M30,0 Q45,50 40,100 Q35,140 55,180' fill='none' stroke='%23200000' stroke-width='4' opacity='0.4'/%3E%3C/svg%3E") top left/150px 200px no-repeat,
         url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 150 200'%3E%3Cpath d='M150,0 Q130,40 135,80 Q140,120 115,160 Q100,190 120,200' fill='none' stroke='%23280000' stroke-width='6' opacity='0.5'/%3E%3Cpath d='M120,0 Q105,50 110,100 Q115,140 95,180' fill='none' stroke='%23200000' stroke-width='4' opacity='0.4'/%3E%3C/svg%3E") top right/150px 200px no-repeat;
-    animation: vinesPulse 4s ease-in-out infinite;
 }
 
-/* Floating particle spores */
+/* Static floating spores - no animation for performance */
 body::after {
     content: '';
     position: fixed;
@@ -61,6 +62,8 @@ body::after {
     bottom: 0;
     pointer-events: none;
     z-index: 999;
+    will-change: auto;
+    transform: translateZ(0);
     background-image:
         radial-gradient(2px 2px at 10% 20%, rgba(255, 0, 0, 0.3), transparent),
         radial-gradient(2px 2px at 90% 15%, rgba(255, 0, 0, 0.2), transparent),
@@ -69,35 +72,6 @@ body::after {
         radial-gradient(1px 1px at 50% 40%, rgba(255, 100, 100, 0.2), transparent),
         radial-gradient(2px 2px at 85% 85%, rgba(255, 0, 0, 0.3), transparent),
         radial-gradient(1px 1px at 15% 60%, rgba(255, 50, 50, 0.2), transparent);
-    animation: sporesFloat 8s ease-in-out infinite;
-}
-
-@keyframes vinesPulse {
-
-    0%,
-    100% {
-        opacity: 0.8;
-        filter: brightness(1);
-    }
-
-    50% {
-        opacity: 1;
-        filter: brightness(1.3) drop-shadow(0 0 10px rgba(255, 0, 0, 0.3));
-    }
-}
-
-@keyframes sporesFloat {
-
-    0%,
-    100% {
-        transform: translateY(0) scale(1);
-        opacity: 0.6;
-    }
-
-    50% {
-        transform: translateY(-10px) scale(1.1);
-        opacity: 1;
-    }
 }
 
 /* Scrollbar */
