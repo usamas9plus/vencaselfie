@@ -680,7 +680,7 @@
             const savedUrl = localStorage.getItem('vecna_server_url');
 
             // Use current origin as default to avoid CORS redirect issues
-            getEl('serverUrl').value = savedUrl || window.location.origin;
+            getEl('serverUrl').value = savedUrl || window.location.origin || 'https://www.vecnaselfie.com';
 
             if (savedSecret) {
                 getEl('adminSecret').value = savedSecret;
