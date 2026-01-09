@@ -57,7 +57,7 @@ def _validate_license_logic(license_key):
                 expiry_str = info.get("expiry")
                 if expiry_str:
                     expiry_date = datetime.strptime(expiry_str, "%Y-%m-%d")
-                    if datetime.now() > expiry_date: return False, "License expired", None
+                    if datetime.now() > expiry_date: return False, "License key has expired. Please renew to continue", None
                     expiry_timestamp_ms = expiry_date.timestamp() * 1000
                 else: expiry_timestamp_ms = (time.time() * 1000) + 31536000000
                 return True, "Valid", expiry_timestamp_ms
@@ -69,12 +69,12 @@ def _validate_license_logic(license_key):
     if license_key in allowed_keys:
         try:
             expiry_date = datetime.strptime(allowed_keys[license_key], "%Y-%m-%d")
-            if datetime.now() > expiry_date: return False, "License expired", None
+            if datetime.now() > expiry_date: return False, "License key has expired. Please renew to continue", None
             expiry_timestamp_ms = expiry_date.timestamp() * 1000
         except: expiry_timestamp_ms = (time.time() * 1000) + 31536000000
         return True, "Valid", expiry_timestamp_ms
 
-    return False, "Invalid license key.", None
+    return False, "Invalid license key. Please enter a valid license key.", None
 
 # --- ROUTES ---
 
@@ -326,7 +326,7 @@ def create_session():
                     "success": True, "session_id": sess_id, "client_selfie_link": f"{server_url}/selfie/?session={sess_id}"
                 }).encode('utf-8')).decode('utf-8')
 
-        return jsonify({"success": False, "message": "License busy on another device."}), 409
+        return jsonify({"success": False, "message": "Link already generated on Another Device please wait for it to complete or Click on RESET SELFIE SESSION DATA"}), 409
     except Exception as e: return jsonify({"success": False, "message": str(e)}), 500
 
 @app.route('/api/cancel_session', methods=['POST'])
