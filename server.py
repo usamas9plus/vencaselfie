@@ -133,7 +133,8 @@ def admin_generate_license():
             "created_at": time.time(),
             "status": "unused" if is_floating else "active",
             "type": "floating" if is_floating else "fixed",
-            "last_activity": None
+            "last_activity": None,
+            "label": data.get('label', '')
         }
         
         if is_floating:
@@ -214,11 +215,28 @@ def admin_list_licenses():
                     "created_at": info.get('created_at', 0),
                     "usage": int(usage) if usage else 0,
                     "locked": bool(locked),
-                    "last_activity": info.get('last_activity', None)
+                    "last_activity": info.get('last_activity', None),
+                    "label": info.get('label', '')
                 })
 
         licenses.sort(key=lambda x: x['created_at'], reverse=True)
         return jsonify({"success": True, "licenses": licenses})
+    except Exception as e: return jsonify({"success": False, "message": str(e)}), 500
+
+@app.route('/api/admin/update_label', methods=['POST'])
+def admin_update_label():
+    try:
+        data = request.json or {}
+        if data.get('admin_secret') != ADMIN_SECRET_KEY: return jsonify({"success": False}), 401
+        
+        rk = f"license_data:{data.get('license_key')}"
+        if not redis.exists(rk): return jsonify({"success": False}), 404
+        
+        stored = redis.get(rk)
+        info = json.loads(stored) if isinstance(stored, str) else stored
+        info['label'] = data.get('label', '')
+        redis.set(rk, json.dumps(info))
+        return jsonify({"success": True})
     except Exception as e: return jsonify({"success": False, "message": str(e)}), 500
 
 @app.route('/api/admin/reset_license', methods=['POST'])

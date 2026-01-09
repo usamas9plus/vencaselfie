@@ -659,6 +659,7 @@
                         <th style="width: 40px;"><input type="checkbox" id="selectAll" onclick="toggleSelectAll()"
                                 title="Select All"></th>
                         <th class="sortable" onclick="sortTable('key')" id="th-key">License Key</th>
+                        <th class="sortable" onclick="sortTable('label')" id="th-label">Label</th>
                         <th class="sortable" onclick="sortTable('expiry')" id="th-expiry">Expiry</th>
                         <th class="sortable" onclick="sortTable('last_activity')" id="th-last_activity">Last Activity
                         </th>
@@ -669,7 +670,7 @@
                 </thead>
                 <tbody>
                     <tr>
-                        <td colspan="7" style="text-align:center; padding:40px; color:#666">Enter admin secret and click
+                        <td colspan="8" style="text-align:center; padding:40px; color:#666">Enter admin secret and click
                             Connect</td>
                     </tr>
                 </tbody>
@@ -833,15 +834,17 @@
             });
 
             if (sortedData.length === 0) {
-                tbody.innerHTML = '<tr><td colspan="7" style="text-align:center; padding:40px; color:#666">No licenses found</td></tr>';
+                tbody.innerHTML = '<tr><td colspan="8" style="text-align:center; padding:40px; color:#666">No licenses found</td></tr>';
                 return;
             }
 
             sortedData.forEach(lic => {
                 const row = document.createElement('tr');
+                const labelDisplay = lic.label ? `<span style="color:#d4a03a">${lic.label}</span>` : '<span style="color:#555">—</span>';
                 row.innerHTML = `
                     <td><input type="checkbox" class="row-checkbox" data-key="${lic.key}" onclick="updateBulkActions()"></td>
                     <td class="key-text">${lic.key}</td>
+                    <td>${labelDisplay} <button class="action-btn edit" onclick="editLabel('${lic.key}', '${lic.label || ''}')" style="padding:2px 6px; font-size:0.65em">🏷️</button></td>
                     <td>${lic.expiry}</td>
                     <td>${formatActivity(lic.last_activity)}</td>
                     <td>${lic.usage}</td>
@@ -891,7 +894,7 @@
             } catch (e) {
                 getEl('statusDot').classList.remove('connected');
                 getEl('statusText').textContent = 'Error';
-                tbody.innerHTML = `<tr><td colspan=\"7\" style=\"color:var(--red); text-align:center; padding:40px\">❌ ${e.message}</td></tr>`;
+                tbody.innerHTML = `<tr><td colspan=\"8\" style=\"color:var(--red); text-align:center; padding:40px\">❌ ${e.message}</td></tr>`;
             }
             hideLoading();
         }
@@ -903,6 +906,11 @@
         async function editExpiry(key, currentExpiry) {
             const newDate = prompt("Enter new expiry date (YYYY-MM-DD):", currentExpiry.includes("Floating") ? "" : currentExpiry);
             if (newDate) apiCall('/api/admin/update_expiry', { license_key: key, new_expiry: newDate }, "✅ Expiry Updated!");
+        }
+
+        async function editLabel(key, currentLabel) {
+            const newLabel = prompt("Enter label for this key (e.g. user name, purpose):", currentLabel);
+            if (newLabel !== null) apiCall('/api/admin/update_label', { license_key: key, label: newLabel }, "🏷️ Label Updated!");
         }
 
         async function resetLock(key) {
