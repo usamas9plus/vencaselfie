@@ -596,7 +596,7 @@
 
         <!-- Connection Bar -->
         <div class="setup-bar">
-            <input type="text" id="serverUrl" placeholder="Server URL" value="https://vecnaselfie.com">
+            <input type="text" id="serverUrl" placeholder="Server URL">
             <input type="password" id="adminSecret" placeholder="🔒 Enter Admin Secret">
             <label class="checkbox-wrapper">
                 <input type="checkbox" id="rememberSecret" onchange="toggleRememberSecret()">
@@ -679,12 +679,12 @@
             const savedSecret = localStorage.getItem('vecna_admin_secret');
             const savedUrl = localStorage.getItem('vecna_server_url');
 
+            // Use current origin as default to avoid CORS redirect issues
+            getEl('serverUrl').value = savedUrl || window.location.origin;
+
             if (savedSecret) {
                 getEl('adminSecret').value = savedSecret;
                 getEl('rememberSecret').checked = true;
-            }
-            if (savedUrl) {
-                getEl('serverUrl').value = savedUrl;
             }
         };
 
