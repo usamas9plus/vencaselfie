@@ -5,9 +5,10 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Vecna Admin Console</title>
+    <link
+        href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&family=Inter:wght@400;600&display=swap"
+        rel="stylesheet">
     <style>
-        @import url('https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700&family=Inter:wght@400;600&display=swap');
-
         :root {
             --bg: #050505;
             --card: #0a0a0a;
@@ -21,12 +22,19 @@
             --orange: #ff8800;
         }
 
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
         body {
-            background-color: var(--bg);
+            background: var(--bg);
+            background-image: radial-gradient(ellipse at top, #1a0000 0%, #000000 80%);
             color: var(--text);
             font-family: 'Inter', sans-serif;
-            margin: 0;
-            padding: 40px;
+            min-height: 100vh;
+            padding: 30px;
         }
 
         .container {
@@ -34,34 +42,146 @@
             margin: 0 auto;
         }
 
+        /* Header */
+        .header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 30px;
+            padding-bottom: 20px;
+            border-bottom: 2px solid var(--red);
+        }
+
         h1 {
             font-family: 'Orbitron', sans-serif;
             color: var(--red);
             text-transform: uppercase;
             letter-spacing: 4px;
-            border-bottom: 2px solid var(--red);
-            padding-bottom: 15px;
+            font-size: 1.8em;
+            text-shadow: 0 0 20px rgba(255, 0, 0, 0.5);
+        }
+
+        .header-status {
+            display: flex;
+            align-items: center;
+            gap: 15px;
+        }
+
+        .status-indicator {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            padding: 8px 15px;
+            background: rgba(0, 0, 0, 0.5);
+            border: 1px solid var(--border);
+            border-radius: 20px;
+            font-size: 0.85em;
+        }
+
+        .status-dot {
+            width: 10px;
+            height: 10px;
+            border-radius: 50%;
+            background: #666;
+        }
+
+        .status-dot.connected {
+            background: var(--green);
+            box-shadow: 0 0 10px var(--green);
+        }
+
+        /* Stats Cards */
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 20px;
             margin-bottom: 30px;
         }
 
+        .stat-card {
+            background: linear-gradient(135deg, rgba(20, 0, 0, 0.8) 0%, rgba(10, 10, 10, 0.9) 100%);
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            padding: 25px;
+            text-align: center;
+            transition: all 0.3s;
+        }
+
+        .stat-card:hover {
+            border-color: var(--red);
+            box-shadow: 0 0 20px rgba(255, 0, 0, 0.2);
+        }
+
+        .stat-value {
+            font-family: 'Orbitron', sans-serif;
+            font-size: 2.5em;
+            font-weight: 900;
+            color: var(--green);
+            text-shadow: 0 0 15px rgba(0, 255, 0, 0.4);
+        }
+
+        .stat-value.busy {
+            color: var(--orange);
+            text-shadow: 0 0 15px rgba(255, 136, 0, 0.4);
+        }
+
+        .stat-label {
+            color: #888;
+            font-size: 0.85em;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            margin-top: 8px;
+        }
+
+        /* Connection Bar */
         .setup-bar {
             background: var(--card);
             padding: 20px;
             border: 1px solid var(--border);
-            border-radius: 8px;
+            border-radius: 12px;
             margin-bottom: 30px;
             display: flex;
             gap: 15px;
             align-items: center;
+            flex-wrap: wrap;
         }
 
-        input {
+        input,
+        select {
             background: #000;
             border: 1px solid var(--border);
             color: #fff;
-            padding: 12px;
-            border-radius: 4px;
+            padding: 12px 15px;
+            border-radius: 6px;
+            font-size: 0.95em;
+            transition: border-color 0.3s;
+        }
+
+        input:focus,
+        select:focus {
+            outline: none;
+            border-color: var(--red);
+        }
+
+        input[type="text"],
+        input[type="password"] {
             flex: 1;
+            min-width: 200px;
+        }
+
+        .checkbox-wrapper {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            color: #aaa;
+            font-size: 0.85em;
+            cursor: pointer;
+        }
+
+        .checkbox-wrapper input[type="checkbox"] {
+            width: 18px;
+            height: 18px;
+            accent-color: var(--red);
         }
 
         button {
@@ -74,18 +194,20 @@
             text-transform: uppercase;
             font-size: 0.8em;
             font-weight: bold;
+            border-radius: 6px;
+            transition: all 0.3s;
         }
 
         button:hover {
-            background: var(--red);
-            box-shadow: 0 0 15px rgba(255, 0, 0, 0.4);
+            background: linear-gradient(180deg, var(--red) 0%, var(--dark-red) 100%);
+            box-shadow: 0 0 20px rgba(255, 0, 0, 0.5);
+            transform: translateY(-2px);
         }
 
         button.action-btn {
             padding: 6px 12px;
             font-size: 0.7em;
             margin-right: 5px;
-            margin-top: 0;
         }
 
         button.copy {
@@ -101,9 +223,9 @@
         }
 
         button.hist {
-            background: #333;
-            border-color: #44aaee;
-            color: #44aaee;
+            background: #002233;
+            border-color: var(--blue);
+            color: var(--blue);
         }
 
         button.delete {
@@ -118,39 +240,82 @@
             color: var(--blue);
         }
 
-        .migrate-btn {
-            background: #332200;
-            border-color: #ffaa00;
-            color: #ffaa00;
-            margin-left: 10px;
+        button.secondary {
+            background: #222;
+            border-color: #444;
+            color: #aaa;
         }
 
-        .migrate-btn:hover {
-            background: #ffaa00;
-            color: #000;
-        }
-
+        /* Generator Card */
         .generator-card {
-            background: linear-gradient(135deg, rgba(20, 0, 0, 0.6) 0%, rgba(0, 0, 0, 0.9) 100%);
-            border: 1px solid var(--red);
+            background: linear-gradient(135deg, rgba(30, 0, 0, 0.7) 0%, rgba(10, 10, 10, 0.95) 100%);
+            border: 2px solid var(--red);
             padding: 25px;
-            border-radius: 8px;
+            border-radius: 12px;
             margin-bottom: 30px;
+            box-shadow: 0 0 30px rgba(255, 0, 0, 0.1);
+        }
+
+        .generator-card h3 {
+            margin: 0 0 20px 0;
+            color: var(--red);
+            font-family: 'Orbitron', sans-serif;
+            letter-spacing: 2px;
         }
 
         .generator-grid {
             display: grid;
-            grid-template-columns: 1fr 1fr 1fr auto;
-            gap: 15px;
+            grid-template-columns: 1fr 100px 1.5fr auto;
+            gap: 20px;
             align-items: end;
-            margin-top: 15px;
         }
 
+        .form-group label {
+            display: block;
+            color: #888;
+            font-size: 0.8em;
+            margin-bottom: 8px;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+
+        .radio-group {
+            display: flex;
+            gap: 20px;
+        }
+
+        .radio-group label {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            cursor: pointer;
+            color: #aaa;
+        }
+
+        .radio-group label:has(input:checked) {
+            color: var(--red);
+        }
+
+        /* Table */
         .table-container {
             background: var(--card);
             border: 1px solid var(--border);
-            border-radius: 8px;
+            border-radius: 12px;
             padding: 20px;
+            overflow-x: auto;
+        }
+
+        .table-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+        }
+
+        .table-header h3 {
+            margin: 0;
+            font-family: 'Orbitron', sans-serif;
+            color: #fff;
         }
 
         table {
@@ -158,21 +323,21 @@
             border-collapse: collapse;
         }
 
-        /* --- SORTABLE HEADERS STYLING --- */
         th {
             text-align: left;
-            color: #888;
-            padding: 12px 10px;
-            border-bottom: 1px solid var(--border);
-            font-size: 0.9em;
-            user-select: none;
-            /* Prevent text selection when double clicking */
+            color: #666;
+            padding: 15px 10px;
+            border-bottom: 2px solid var(--border);
+            font-size: 0.85em;
+            text-transform: uppercase;
+            letter-spacing: 1px;
         }
 
         th.sortable {
             cursor: pointer;
             position: relative;
             transition: color 0.3s;
+            padding-right: 25px;
         }
 
         th.sortable:hover {
@@ -182,8 +347,7 @@
         th.sortable::after {
             content: '↕';
             position: absolute;
-            right: 5px;
-            font-size: 0.8em;
+            right: 8px;
             opacity: 0.3;
         }
 
@@ -199,28 +363,49 @@
             color: var(--red);
         }
 
-        /* -------------------------------- */
-
         td {
-            padding: 12px 10px;
-            border-bottom: 1px solid #111;
-            font-family: monospace;
-            font-size: 1.0em;
+            padding: 15px 10px;
+            border-bottom: 1px solid #1a1a1a;
+            font-size: 0.95em;
+        }
+
+        tr:hover td {
+            background: rgba(255, 0, 0, 0.03);
         }
 
         .key-text {
+            font-family: 'Orbitron', monospace;
             color: var(--green);
             letter-spacing: 1px;
+            font-weight: 600;
         }
 
+        .badge {
+            padding: 4px 10px;
+            border-radius: 12px;
+            font-size: 0.75em;
+            font-weight: 600;
+            text-transform: uppercase;
+        }
+
+        .badge-busy {
+            background: rgba(255, 136, 0, 0.2);
+            color: var(--orange);
+            border: 1px solid var(--orange);
+        }
+
+        .badge-idle {
+            background: rgba(0, 255, 0, 0.1);
+            color: var(--green);
+            border: 1px solid var(--green);
+        }
+
+        /* Loading & Toast */
         #loadingOverlay {
             display: none;
             position: fixed;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            background: rgba(0, 0, 0, 0.8);
+            inset: 0;
+            background: rgba(0, 0, 0, 0.9);
             z-index: 999;
             justify-content: center;
             align-items: center;
@@ -228,39 +413,36 @@
         }
 
         .loader {
-            width: 50px;
-            height: 50px;
+            width: 60px;
+            height: 60px;
             border: 3px solid var(--border);
             border-top: 3px solid var(--red);
             border-radius: 50%;
             animation: spin 1s linear infinite;
-            margin-bottom: 15px;
+            margin-bottom: 20px;
         }
 
         @keyframes spin {
-            0% {
-                transform: rotate(0deg);
-            }
-
-            100% {
+            to {
                 transform: rotate(360deg);
             }
         }
 
         #toast {
             visibility: hidden;
-            min-width: 250px;
-            background-color: #111;
-            color: #00ff00;
+            min-width: 280px;
+            background: linear-gradient(135deg, #0a0a0a, #111);
+            color: var(--green);
             text-align: center;
-            border-radius: 4px;
-            padding: 16px;
+            border-radius: 8px;
+            padding: 18px 25px;
             position: fixed;
             z-index: 1001;
             left: 50%;
             bottom: 30px;
             transform: translateX(-50%);
-            border: 1px solid #00ff00;
+            border: 1px solid var(--green);
+            box-shadow: 0 0 30px rgba(0, 255, 0, 0.2);
         }
 
         #toast.show {
@@ -296,55 +478,70 @@
         .modal {
             display: none;
             position: fixed;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            background: rgba(0, 0, 0, 0.9);
+            inset: 0;
+            background: rgba(0, 0, 0, 0.95);
             z-index: 1000;
             justify-content: center;
             align-items: center;
         }
 
         .modal-content {
-            background: #111;
-            border: 1px solid var(--red);
+            background: linear-gradient(135deg, #111, #0a0a0a);
+            border: 2px solid var(--red);
             padding: 30px;
             width: 500px;
             max-height: 80vh;
             overflow-y: auto;
-            border-radius: 8px;
+            border-radius: 12px;
+            box-shadow: 0 0 50px rgba(255, 0, 0, 0.3);
+        }
+
+        .modal-content h2 {
+            color: var(--red);
+            font-family: 'Orbitron', sans-serif;
+            margin: 0 0 20px 0;
         }
 
         .history-item {
-            border-bottom: 1px solid #333;
-            padding: 8px 0;
+            border-bottom: 1px solid #222;
+            padding: 12px 0;
             display: flex;
             justify-content: space-between;
             font-size: 0.9em;
         }
 
-        .radio-group {
-            display: flex;
-            gap: 15px;
-            margin-top: 5px;
+        /* Responsive */
+        @media (max-width: 900px) {
+            .generator-grid {
+                grid-template-columns: 1fr 1fr;
+            }
+
+            .stats-grid {
+                grid-template-columns: repeat(2, 1fr);
+            }
         }
 
-        /* New Status Badges */
-        .badge-busy {
-            color: var(--orange);
-            border: 1px solid var(--orange);
-            padding: 2px 6px;
-            border-radius: 4px;
-            font-size: 0.8em;
-        }
+        @media (max-width: 600px) {
+            body {
+                padding: 15px;
+            }
 
-        .badge-idle {
-            color: #5f5;
-            border: 1px solid #5f5;
-            padding: 2px 6px;
-            border-radius: 4px;
-            font-size: 0.8em;
+            .generator-grid {
+                grid-template-columns: 1fr;
+            }
+
+            .stats-grid {
+                grid-template-columns: 1fr;
+            }
+
+            .setup-bar {
+                flex-direction: column;
+            }
+
+            input[type="text"],
+            input[type="password"] {
+                width: 100%;
+            }
         }
     </style>
 </head>
@@ -355,11 +552,11 @@
         <div class="loader"></div>
         <div id="loadingText" style="font-family:'Orbitron'; color:white">PROCESSING...</div>
     </div>
-    <div id="toast">Copied to Clipboard!</div>
+    <div id="toast">Success!</div>
 
     <div id="historyModal" class="modal">
         <div class="modal-content">
-            <h2 style="color:var(--red); font-family:'Orbitron'; margin-top:0">Usage History</h2>
+            <h2>📊 Usage History</h2>
             <div id="historyList">Loading...</div>
             <button onclick="document.getElementById('historyModal').style.display='none'"
                 style="margin-top:20px; width:100%">Close</button>
@@ -367,71 +564,102 @@
     </div>
 
     <div class="container">
-        <h1>Vecna Command Center</h1>
-
-        <div class="setup-bar">
-            <input type="text" id="serverUrl" placeholder="Server URL" value="https://vecnaselfie.com">
-            <input type="password" id="adminSecret" placeholder="Enter Admin Secret to Unlock">
-            <button onclick="fetchAllData()">Connect</button>
-        </div>
-
-        <div class="generator-card">
-            <h3 style="margin-top:0; color:var(--red); font-family:'Orbitron'">Generate Licenses</h3>
-            <div class="generator-grid">
-                <div>
-                    <label style="color:#888; font-size:0.8em">CLIENT NAME</label>
-                    <input type="text" id="genName" placeholder="NAME" style="text-transform:uppercase">
+        <div class="header">
+            <h1>🔴 Vecna Command Center</h1>
+            <div class="header-status">
+                <div class="status-indicator">
+                    <div class="status-dot" id="statusDot"></div>
+                    <span id="statusText">Disconnected</span>
                 </div>
-                <div>
-                    <label style="color:#888; font-size:0.8em">QUANTITY</label>
-                    <input type="number" id="genCount" value="1" min="1" max="50">
-                </div>
-                <div>
-                    <label style="color:#888; font-size:0.8em">KEY TYPE & DURATION</label>
-                    <div class="radio-group">
-                        <label style="color:#aaa"><input type="radio" name="keyType" value="fixed" checked
-                                onclick="toggleKeyType()"> Fixed Date</label>
-                        <label style="color:#ffaa00"><input type="radio" name="keyType" value="floating"
-                                onclick="toggleKeyType()"> Activate on Use</label>
-                    </div>
-
-                    <div id="fixedDateInput">
-                        <input type="date" id="expiryDate" style="margin-top:5px;">
-                    </div>
-
-                    <div id="floatingInput" style="display:none;">
-                        <input type="number" id="durationDays" placeholder="Duration (Days)" style="margin-top:5px;">
-                    </div>
-                </div>
-                <button onclick="startBatchGeneration()">Generate Keys</button>
             </div>
         </div>
 
-        <div class="table-container">
-            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:15px">
-                <h3 style="margin:0; font-family:'Orbitron'">Active Database</h3>
-                <div>
-                    <button class="secondary migrate-btn" onclick="migrateLegacyKeys()">MIGRATE LEGACY KEYS</button>
-                    <button class="secondary" onclick="fetchAllData()"
-                        style="padding:8px 15px; font-size:0.7em; background:#222;">Refresh List</button>
+        <!-- Stats Cards -->
+        <div class="stats-grid" id="statsGrid" style="display: none;">
+            <div class="stat-card">
+                <div class="stat-value" id="statTotal">0</div>
+                <div class="stat-label">Total Licenses</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-value" id="statActive">0</div>
+                <div class="stat-label">Active Keys</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-value busy" id="statBusy">0</div>
+                <div class="stat-label">Busy Sessions</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-value" id="statUsage">0</div>
+                <div class="stat-label">Total Uses</div>
+            </div>
+        </div>
+
+        <!-- Connection Bar -->
+        <div class="setup-bar">
+            <input type="text" id="serverUrl" placeholder="Server URL" value="https://vecnaselfie.com">
+            <input type="password" id="adminSecret" placeholder="🔒 Enter Admin Secret">
+            <label class="checkbox-wrapper">
+                <input type="checkbox" id="rememberSecret" onchange="toggleRememberSecret()">
+                Remember Password
+            </label>
+            <button onclick="connect()">🔌 Connect</button>
+        </div>
+
+        <!-- Generator -->
+        <div class="generator-card">
+            <h3>⚡ Generate Licenses</h3>
+            <div class="generator-grid">
+                <div class="form-group">
+                    <label>Client Name</label>
+                    <input type="text" id="genName" placeholder="e.g. JOHN"
+                        style="text-transform:uppercase; width:100%">
                 </div>
+                <div class="form-group">
+                    <label>Quantity</label>
+                    <input type="number" id="genCount" value="1" min="1" max="50" style="width:100%">
+                </div>
+                <div class="form-group">
+                    <label>Key Type & Duration</label>
+                    <div class="radio-group">
+                        <label><input type="radio" name="keyType" value="fixed" checked onclick="toggleKeyType()"> Fixed
+                            Date</label>
+                        <label style="color:var(--orange)"><input type="radio" name="keyType" value="floating"
+                                onclick="toggleKeyType()"> Activate on Use</label>
+                    </div>
+                    <div id="fixedDateInput" style="margin-top:10px">
+                        <input type="date" id="expiryDate" style="width:100%">
+                    </div>
+                    <div id="floatingInput" style="display:none; margin-top:10px">
+                        <input type="number" id="durationDays" placeholder="Duration (Days)" style="width:100%">
+                    </div>
+                </div>
+                <button onclick="startBatchGeneration()" style="height:45px">🚀 Generate</button>
+            </div>
+        </div>
+
+        <!-- License Table -->
+        <div class="table-container">
+            <div class="table-header">
+                <h3>📋 License Database</h3>
+                <button class="secondary" onclick="fetchAllData()" style="padding:10px 20px">🔄 Refresh</button>
             </div>
 
             <table id="licenseTable">
                 <thead>
                     <tr>
-                        <th class="sortable" onclick="sortTable('key')" id="th-key">LICENSE KEY</th>
-                        <th class="sortable" onclick="sortTable('expiry')" id="th-expiry" style="width:12%">EXPIRY</th>
-                        <th class="sortable" onclick="sortTable('last_activity')" id="th-last_activity"
-                            style="width:18%">LAST ACTIVITY</th>
-                        <th class="sortable" onclick="sortTable('usage')" id="th-usage" style="width:8%">STATS</th>
-                        <th style="width:8%">SESSION</th>
-                        <th style="width:29%">ACTIONS</th>
+                        <th class="sortable" onclick="sortTable('key')" id="th-key">License Key</th>
+                        <th class="sortable" onclick="sortTable('expiry')" id="th-expiry">Expiry</th>
+                        <th class="sortable" onclick="sortTable('last_activity')" id="th-last_activity">Last Activity
+                        </th>
+                        <th class="sortable" onclick="sortTable('usage')" id="th-usage">Uses</th>
+                        <th>Status</th>
+                        <th>Actions</th>
                     </tr>
                 </thead>
                 <tbody>
                     <tr>
-                        <td colspan="6" style="text-align:center; padding:20px">Waiting for connection...</td>
+                        <td colspan="6" style="text-align:center; padding:40px; color:#666">Enter admin secret and click
+                            Connect</td>
                     </tr>
                 </tbody>
             </table>
@@ -443,34 +671,84 @@
         const showLoading = (msg) => { getEl('loadingText').textContent = msg; getEl('loadingOverlay').style.display = 'flex'; };
         const hideLoading = () => { getEl('loadingOverlay').style.display = 'none'; };
 
-        // --- GLOBAL DATA STORE ---
         let allLicenses = [];
-        let currentSort = { col: 'created_at', dir: 'desc' }; // Default sort by creation newest first
+        let currentSort = { col: 'created_at', dir: 'desc' };
+
+        // Load saved credentials on page load
+        window.onload = function () {
+            const savedSecret = localStorage.getItem('vecna_admin_secret');
+            const savedUrl = localStorage.getItem('vecna_server_url');
+
+            if (savedSecret) {
+                getEl('adminSecret').value = savedSecret;
+                getEl('rememberSecret').checked = true;
+            }
+            if (savedUrl) {
+                getEl('serverUrl').value = savedUrl;
+            }
+        };
+
+        function toggleRememberSecret() {
+            const checkbox = getEl('rememberSecret');
+            if (!checkbox.checked) {
+                localStorage.removeItem('vecna_admin_secret');
+                showToast('Password forgotten');
+            }
+        }
+
+        function saveCredentials() {
+            const remember = getEl('rememberSecret').checked;
+            const secret = getEl('adminSecret').value;
+            const url = getEl('serverUrl').value;
+
+            localStorage.setItem('vecna_server_url', url);
+
+            if (remember && secret) {
+                localStorage.setItem('vecna_admin_secret', secret);
+            }
+        }
 
         function showToast(msg) {
-            const x = getEl("toast"); x.textContent = msg; x.className = "show";
-            setTimeout(function () { x.className = x.className.replace("show", ""); }, 3000);
+            const x = getEl("toast");
+            x.textContent = msg;
+            x.className = "show";
+            setTimeout(() => { x.className = x.className.replace("show", ""); }, 3000);
         }
 
         function formatActivity(ts) {
-            if (!ts) return '<span style="color:#666">NONE</span>';
-            return new Date(ts * 1000).toLocaleString();
+            if (!ts) return '<span style="color:#666">Never</span>';
+            const date = new Date(ts * 1000);
+            const now = new Date();
+            const diff = Math.floor((now - date) / 1000);
+
+            if (diff < 60) return '<span style="color:var(--green)">Just now</span>';
+            if (diff < 3600) return `${Math.floor(diff / 60)}m ago`;
+            if (diff < 86400) return `${Math.floor(diff / 3600)}h ago`;
+            return date.toLocaleDateString();
         }
 
         function toggleKeyType() {
             const type = document.querySelector('input[name="keyType"]:checked').value;
-            if (type === 'fixed') {
-                getEl('fixedDateInput').style.display = 'block';
-                getEl('floatingInput').style.display = 'none';
-            } else {
-                getEl('fixedDateInput').style.display = 'none';
-                getEl('floatingInput').style.display = 'block';
-            }
+            getEl('fixedDateInput').style.display = type === 'fixed' ? 'block' : 'none';
+            getEl('floatingInput').style.display = type === 'floating' ? 'block' : 'none';
         }
 
-        async function migrateLegacyKeys() {
-            if (!confirm("This will copy keys from Vercel Environment Variables to your Redis Database.\n\nContinue?")) return;
-            apiCall('/api/admin/migrate_legacy_keys', {}, "Migration Successful! Legacy keys are now in the database.");
+        function updateStats() {
+            const total = allLicenses.length;
+            const busy = allLicenses.filter(l => l.locked).length;
+            const totalUsage = allLicenses.reduce((sum, l) => sum + (l.usage || 0), 0);
+            const active = allLicenses.filter(l => !l.expiry.includes('Floating') || l.usage > 0).length;
+
+            getEl('statTotal').textContent = total;
+            getEl('statActive').textContent = active;
+            getEl('statBusy').textContent = busy;
+            getEl('statUsage').textContent = totalUsage;
+            getEl('statsGrid').style.display = 'grid';
+        }
+
+        async function connect() {
+            saveCredentials();
+            await fetchAllData();
         }
 
         async function startBatchGeneration() {
@@ -482,10 +760,7 @@
             if (!secret || !name) return alert("Secret and Name required");
 
             const type = document.querySelector('input[name="keyType"]:checked').value;
-            let payload = {
-                admin_secret: secret,
-                custom_key: null
-            };
+            let payload = { admin_secret: secret, custom_key: null };
 
             if (type === 'fixed') {
                 const dateVal = getEl('expiryDate').value;
@@ -516,19 +791,16 @@
                 } catch (e) { }
             }
             hideLoading();
-            showToast(`Generated ${generatedCount} keys successfully!`);
+            showToast(`✅ Generated ${generatedCount} keys!`);
             fetchAllData();
         }
 
-        // --- SORTING LOGIC ---
         function sortTable(column) {
-            // Toggle direction if clicking same column
             if (currentSort.col === column) {
                 currentSort.dir = currentSort.dir === 'asc' ? 'desc' : 'asc';
             } else {
                 currentSort.col = column;
-                currentSort.dir = 'asc'; // Default new column to asc
-                if (column === 'last_activity' || column === 'usage') currentSort.dir = 'desc'; // Numbers typically desc first
+                currentSort.dir = (column === 'last_activity' || column === 'usage') ? 'desc' : 'asc';
             }
             renderTable();
         }
@@ -537,50 +809,40 @@
             const tbody = getEl('licenseTable').querySelector('tbody');
             tbody.innerHTML = '';
 
-            // Update Header Icons
             document.querySelectorAll('th.sortable').forEach(th => th.classList.remove('asc', 'desc'));
             const activeTh = getEl(`th-${currentSort.col}`);
             if (activeTh) activeTh.classList.add(currentSort.dir);
 
-            // Sorting Algorithm
             const sortedData = [...allLicenses].sort((a, b) => {
-                let valA = a[currentSort.col];
-                let valB = b[currentSort.col];
-
-                // Handle NULLs for activity
-                if (currentSort.col === 'last_activity') {
-                    valA = valA || 0;
-                    valB = valB || 0;
-                }
-
+                let valA = a[currentSort.col] || 0;
+                let valB = b[currentSort.col] || 0;
                 if (valA < valB) return currentSort.dir === 'asc' ? -1 : 1;
                 if (valA > valB) return currentSort.dir === 'asc' ? 1 : -1;
                 return 0;
             });
 
             if (sortedData.length === 0) {
-                tbody.innerHTML = '<tr><td colspan="6" style="text-align:center">No licenses found.</td></tr>';
+                tbody.innerHTML = '<tr><td colspan="6" style="text-align:center; padding:40px; color:#666">No licenses found</td></tr>';
                 return;
             }
 
             sortedData.forEach(lic => {
-                const row = `
-                <tr>
+                const row = document.createElement('tr');
+                row.innerHTML = `
                     <td class="key-text">${lic.key}</td>
-                    <td style="font-size:0.9em">${lic.expiry}</td>
-                    <td style="font-size:0.9em; color:#bbb">${formatActivity(lic.last_activity)}</td>
-                    <td class="usage-stat">${lic.usage} Used</td>
-                    <td>${lic.locked ? '<span class="badge-busy">BUSY</span>' : '<span class="badge-idle">IDLE</span>'}</td>
+                    <td>${lic.expiry}</td>
+                    <td>${formatActivity(lic.last_activity)}</td>
+                    <td>${lic.usage}</td>
+                    <td>${lic.locked ? '<span class="badge badge-busy">BUSY</span>' : '<span class="badge badge-idle">IDLE</span>'}</td>
                     <td>
-                        <button class="action-btn copy" onclick="copyKey('${lic.key}')">COPY</button>
-                        <button class="action-btn edit" onclick="editExpiry('${lic.key}', '${lic.expiry}')">EDIT</button>
-                        <button class="action-btn hist" onclick="viewHistory('${lic.key}')">HISTORY</button>
-                        ${lic.locked ? `<button class="action-btn reset" onclick="resetLock('${lic.key}')">KILL SESSION</button>` : ''}
-                        <button class="action-btn delete" onclick="deleteKey('${lic.key}')">DELETE</button>
+                        <button class="action-btn copy" onclick="copyKey('${lic.key}')">📋</button>
+                        <button class="action-btn edit" onclick="editExpiry('${lic.key}', '${lic.expiry}')">✏️</button>
+                        <button class="action-btn hist" onclick="viewHistory('${lic.key}')">📊</button>
+                        ${lic.locked ? `<button class="action-btn reset" onclick="resetLock('${lic.key}')">💀</button>` : ''}
+                        <button class="action-btn delete" onclick="deleteKey('${lic.key}')">🗑️</button>
                     </td>
-                </tr>
-            `;
-                tbody.innerHTML += row;
+                `;
+                tbody.appendChild(row);
             });
         }
 
@@ -589,55 +851,52 @@
             const secret = getEl('adminSecret').value;
             if (!secret) return alert("Enter Secret First");
 
-            showLoading("Fetching Database...");
+            showLoading("Connecting to server...");
             const tbody = getEl('licenseTable').querySelector('tbody');
-
-            const controller = new AbortController();
-            const timeoutId = setTimeout(() => controller.abort(), 15000);
 
             try {
                 const res = await fetch(`${url}/api/admin/list_licenses`, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ admin_secret: secret }),
-                    signal: controller.signal
+                    body: JSON.stringify({ admin_secret: secret })
                 });
-                clearTimeout(timeoutId);
 
                 const data = await res.json();
                 if (!data.success) throw new Error(data.message);
 
-                // STORE DATA GLOBALLY & RENDER
                 allLicenses = data.licenses;
                 renderTable();
+                updateStats();
+
+                getEl('statusDot').classList.add('connected');
+                getEl('statusText').textContent = 'Connected';
+                showToast('✅ Connected successfully!');
 
             } catch (e) {
-                let msg = e.message;
-                if (e.name === 'AbortError') msg = "Request timed out (Server unresponsive)";
-                tbody.innerHTML = `<tr><td colspan="6" style="color:red">Error: ${msg}</td></tr>`;
+                getEl('statusDot').classList.remove('connected');
+                getEl('statusText').textContent = 'Error';
+                tbody.innerHTML = `<tr><td colspan="6" style="color:var(--red); text-align:center; padding:40px">❌ ${e.message}</td></tr>`;
             }
             hideLoading();
         }
 
         function copyKey(key) {
-            navigator.clipboard.writeText(key).then(() => { showToast(`Copied: ${key}`); }).catch(err => { alert('Failed to copy'); });
+            navigator.clipboard.writeText(key).then(() => showToast(`📋 Copied: ${key}`));
         }
 
         async function editExpiry(key, currentExpiry) {
             const newDate = prompt("Enter new expiry date (YYYY-MM-DD):", currentExpiry.includes("Floating") ? "" : currentExpiry);
-            if (newDate) {
-                apiCall('/api/admin/update_expiry', { license_key: key, new_expiry: newDate }, "Expiry Updated Successfully!");
-            }
+            if (newDate) apiCall('/api/admin/update_expiry', { license_key: key, new_expiry: newDate }, "✅ Expiry Updated!");
         }
 
         async function resetLock(key) {
-            if (!confirm(`Force kill active session for ${key}?\n\nThis allows other devices to use the key immediately.`)) return;
-            apiCall('/api/admin/reset_license', { license_key: key }, "Session Killed Successfully");
+            if (!confirm(`Kill session for ${key}?`)) return;
+            apiCall('/api/admin/reset_license', { license_key: key }, "💀 Session Killed!");
         }
 
         async function deleteKey(key) {
-            if (!confirm(`PERMANENTLY DELETE ${key}?`)) return;
-            apiCall('/api/admin/delete_license', { license_key: key }, "Key Deleted");
+            if (!confirm(`DELETE ${key}?`)) return;
+            apiCall('/api/admin/delete_license', { license_key: key }, "🗑️ Key Deleted");
         }
 
         async function viewHistory(key) {
@@ -647,7 +906,7 @@
             const list = getEl('historyList');
 
             modal.style.display = 'flex';
-            list.innerHTML = 'Fetching logs...';
+            list.innerHTML = 'Loading...';
 
             try {
                 const res = await fetch(`${url}/api/admin/get_history`, {
@@ -658,13 +917,13 @@
                 const data = await res.json();
                 if (data.success && data.history.length > 0) {
                     list.innerHTML = data.history.map(h => `
-                    <div class="history-item">
-                        <span>${h.time}</span>
-                        <span style="color:#888">${h.ip}</span>
-                    </div>
-                `).join('');
+                        <div class="history-item">
+                            <span>${h.time}</span>
+                            <span style="color:#888">${h.ip}</span>
+                        </div>
+                    `).join('');
                 } else {
-                    list.innerHTML = '<p style="text-align:center; color:#666">No usage history found.</p>';
+                    list.innerHTML = '<p style="text-align:center; color:#666">No history found</p>';
                 }
             } catch (e) { list.innerHTML = 'Error loading history.'; }
         }
