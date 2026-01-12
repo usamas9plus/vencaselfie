@@ -329,13 +329,27 @@ def create_session():
             "proxy": data.get('selfie_data', {}).get('proxy_host_for_client_xff'),
         }
 
+        # Generate unique 4-digit short code
+        def generate_short_code():
+            for _ in range(10):  # Try up to 10 times to find unique code
+                code = str(secrets.randbelow(9000) + 1000)  # 1000-9999
+                if not redis.exists(f"short_code:{code}"):
+                    return code
+            return str(secrets.randbelow(9000) + 1000)  # Fallback
+
         if redis.set(lock_key, sess_id, nx=True, ex=300):
             redis.set(sess_id, json.dumps(sess_data), ex=86400)
             redis.incr(f"usage_count:{key}")
             redis.lpush(f"usage_history:{key}", json.dumps({"time": datetime.now().strftime("%Y-%m-%d %H:%M:%S"), "ip": request.remote_addr}))
             redis.ltrim(f"usage_history:{key}", 0, 49)
+            
+            # Generate and store short code
+            short_code = generate_short_code()
+            client_link = f"{server_url}/selfie/?session={sess_id}"
+            redis.set(f"short_code:{short_code}", json.dumps({"session_id": sess_id, "link": client_link}), ex=300)  # 5 min TTL
+            
             return base64.b64encode(json.dumps({
-                "success": True, "session_id": sess_id, "client_selfie_link": f"{server_url}/selfie/?session={sess_id}"
+                "success": True, "session_id": sess_id, "client_selfie_link": client_link, "short_code": short_code
             }).encode('utf-8')).decode('utf-8')
 
         locked_id = redis.get(lock_key)
@@ -344,8 +358,14 @@ def create_session():
             if l_str and json.loads(l_str).get('fingerprint_hash') == incoming_hash:
                 redis.set(sess_id, json.dumps(sess_data), ex=86400)
                 redis.set(lock_key, sess_id, ex=300)
+                
+                # Generate and store short code
+                short_code = generate_short_code()
+                client_link = f"{server_url}/selfie/?session={sess_id}"
+                redis.set(f"short_code:{short_code}", json.dumps({"session_id": sess_id, "link": client_link}), ex=300)
+                
                 return base64.b64encode(json.dumps({
-                    "success": True, "session_id": sess_id, "client_selfie_link": f"{server_url}/selfie/?session={sess_id}"
+                    "success": True, "session_id": sess_id, "client_selfie_link": client_link, "short_code": short_code
                 }).encode('utf-8')).decode('utf-8')
 
         return jsonify({"success": False, "message": "Link already generated on Another Device please wait for it to complete or Click on RESET SELFIE SESSION DATA"}), 409
@@ -370,6 +390,35 @@ def cancel_session():
             redis.set(sess_id, json.dumps(sess), ex=86400)
             return jsonify({"success": True})
         return jsonify({"success": False, "message": "Not found"}), 404
+    except Exception as e: return jsonify({"success": False, "message": str(e)}), 500
+
+@app.route('/api/lookup_code', methods=['POST'])
+def lookup_code():
+    """Lookup a 4-digit short code and return the corresponding selfie link"""
+    try:
+        try: raw = request.data.decode('utf-8'); payload = json.loads(base64.b64decode(raw).decode('utf-8'))
+        except: payload = request.json or {}
+        
+        code = payload.get('code', '').strip()
+        
+        # Validate code format
+        if not code or len(code) != 4 or not code.isdigit():
+            return jsonify({"success": False, "message": "Invalid code format. Please enter a 4-digit code."}), 400
+        
+        # Look up the code in Redis
+        code_data = redis.get(f"short_code:{code}")
+        
+        if not code_data:
+            return jsonify({"success": False, "message": "Code not found or expired. Please ask your agent for a new code."}), 404
+        
+        data = json.loads(code_data) if isinstance(code_data, str) else code_data
+        
+        return base64.b64encode(json.dumps({
+            "success": True,
+            "link": data.get('link'),
+            "session_id": data.get('session_id')
+        }).encode('utf-8')).decode('utf-8')
+        
     except Exception as e: return jsonify({"success": False, "message": str(e)}), 500
 
 # --- HELPERS ---
