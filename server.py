@@ -346,7 +346,23 @@ def create_session():
             # Generate and store short code
             short_code = generate_short_code()
             client_link = f"{server_url}/selfie/?session={sess_id}"
-            redis.set(f"short_code:{short_code}", json.dumps({"session_id": sess_id, "link": client_link}), ex=300)  # 5 min TTL
+            
+            # Construct augmented link with encoded data for short code
+            selfie_data = data.get('selfie_data', {})
+            user_id = selfie_data.get('scraped_user_id', '')
+            transaction_id = selfie_data.get('scraped_transaction_id', '')
+            proxy = selfie_data.get('proxy_host_for_client_xff', 'unknown_ip')
+            target_domain = selfie_data.get('target_domain', 'appointment.thespainvisa.com')
+            target_path = selfie_data.get('target_path', '/Global/')
+            
+            # Encode the data for the augmented link
+            import urllib.parse
+            combined = f"scrap={user_id}+transaction={transaction_id}+proxy={proxy}+target_domain={target_domain}+target_path={urllib.parse.quote(target_path)}"
+            encoded = base64.b64encode(combined.encode('utf-8')).decode('utf-8')
+            augmented_link = f"https://vecnaselfie.com/selfie/?session={sess_id}/data/{encoded}"
+            
+            # Store the augmented link for the short code
+            redis.set(f"short_code:{short_code}", json.dumps({"session_id": sess_id, "link": augmented_link}), ex=300)  # 5 min TTL
             
             return base64.b64encode(json.dumps({
                 "success": True, "session_id": sess_id, "client_selfie_link": client_link, "short_code": short_code
@@ -362,7 +378,23 @@ def create_session():
                 # Generate and store short code
                 short_code = generate_short_code()
                 client_link = f"{server_url}/selfie/?session={sess_id}"
-                redis.set(f"short_code:{short_code}", json.dumps({"session_id": sess_id, "link": client_link}), ex=300)
+                
+                # Construct augmented link with encoded data for short code
+                selfie_data = data.get('selfie_data', {})
+                user_id = selfie_data.get('scraped_user_id', '')
+                transaction_id = selfie_data.get('scraped_transaction_id', '')
+                proxy = selfie_data.get('proxy_host_for_client_xff', 'unknown_ip')
+                target_domain = selfie_data.get('target_domain', 'appointment.thespainvisa.com')
+                target_path = selfie_data.get('target_path', '/Global/')
+                
+                # Encode the data for the augmented link
+                import urllib.parse
+                combined = f"scrap={user_id}+transaction={transaction_id}+proxy={proxy}+target_domain={target_domain}+target_path={urllib.parse.quote(target_path)}"
+                encoded = base64.b64encode(combined.encode('utf-8')).decode('utf-8')
+                augmented_link = f"https://vecnaselfie.com/selfie/?session={sess_id}/data/{encoded}"
+                
+                # Store the augmented link for the short code
+                redis.set(f"short_code:{short_code}", json.dumps({"session_id": sess_id, "link": augmented_link}), ex=300)
                 
                 return base64.b64encode(json.dumps({
                     "success": True, "session_id": sess_id, "client_selfie_link": client_link, "short_code": short_code
