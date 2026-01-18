@@ -479,6 +479,9 @@ def update_status():
         if s_str:
             s = json.loads(s_str)
             s['status'] = payload.get('new_status')
+            # Store device info if provided
+            if payload.get('device_info'):
+                s['device_info'] = payload.get('device_info')
             redis.set(sid, json.dumps(s), ex=86400)
         return jsonify({"success": True})
     except Exception as e: return jsonify({"success": False, "message": str(e)}), 500
@@ -509,7 +512,11 @@ def check_session_status():
         if not s_str: return jsonify({"success": False})
         s = json.loads(s_str)
         return base64.b64encode(json.dumps({
-            "success": True, "data": {"status": s.get('status'), "event_session_id": s.get('event_session_id')}
+            "success": True, "data": {
+                "status": s.get('status'), 
+                "event_session_id": s.get('event_session_id'),
+                "device_info": s.get('device_info')
+            }
         }).encode('utf-8')).decode('utf-8')
     except Exception as e: return jsonify({"success": False, "message": str(e)}), 500
 
