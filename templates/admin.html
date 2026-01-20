@@ -621,9 +621,10 @@
                 <div class="form-group">
                     <label>Key Category</label>
                     <div class="radio-group">
-                        <label style="color:var(--green)"><input type="radio" name="keyCategory" value="regular"
-                                checked> 📦 Regular</label>
-                        <label style="color:var(--orange)"><input type="radio" name="keyCategory" value="test"> 🧪
+                        <label style="color:var(--green)"><input type="radio" name="keyCategory" value="regular" checked
+                                onclick="onCategoryChange('regular')"> 📦 Regular</label>
+                        <label style="color:var(--orange)"><input type="radio" name="keyCategory" value="test"
+                                onclick="onCategoryChange('test')"> 🧪
                             Test</label>
                     </div>
                 </div>
@@ -757,6 +758,12 @@
             getEl('floatingInput').style.display = type === 'floating' ? 'block' : 'none';
         }
 
+        function onCategoryChange(category) {
+            if (category === 'test') {
+                getEl('genName').value = 'TEST';
+            }
+        }
+
         function updateStats() {
             const total = allLicenses.length;
             const busy = allLicenses.filter(l => l.locked).length;
@@ -801,22 +808,39 @@
 
             showLoading(`Generating ${count} keys...`);
             let generatedCount = 0;
+            let generatedKeys = [];
 
             for (let i = 0; i < count; i++) {
                 const randomCode = Math.floor(1000 + Math.random() * 9000);
-                payload.custom_key = `VECNA-${name}-${randomCode}`;
+                const newKey = `VECNA-${name}-${randomCode}`;
+                payload.custom_key = newKey;
 
                 try {
-                    await fetch(`${url}/api/admin/generate_license`, {
+                    const res = await fetch(`${url}/api/admin/generate_license`, {
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json' },
                         body: JSON.stringify(payload)
                     });
-                    generatedCount++;
+                    const data = await res.json();
+                    if (data.success) {
+                        generatedCount++;
+                        generatedKeys.push(data.license_key || newKey);
+                    }
                 } catch (e) { }
             }
             hideLoading();
-            showToast(`✅ Generated ${generatedCount} keys!`);
+
+            // Copy all keys to clipboard
+            if (generatedKeys.length > 0) {
+                const keysText = generatedKeys.join('\n');
+                navigator.clipboard.writeText(keysText).then(() => {
+                    showToast(`✅ Generated ${generatedCount} keys! Copied to clipboard.`);
+                }).catch(() => {
+                    showToast(`✅ Generated ${generatedCount} keys!`);
+                });
+            } else {
+                showToast(`✅ Generated ${generatedCount} keys!`);
+            }
             fetchAllData();
         }
 
@@ -871,6 +895,7 @@
                         <button class="action-btn copy" onclick="copyKey('${lic.key}')">📋</button>
                         <button class="action-btn edit" onclick="editExpiry('${lic.key}', '${lic.expiry}')">✏️</button>
                         <button class="action-btn hist" onclick="viewHistory('${lic.key}')">📊</button>
+                        ${lic.key_category === 'test' && lic.device_count > 0 ? `<button class="action-btn reset" onclick="clearTestDevice('${lic.key}')" title="Clear device restriction">🔓</button>` : ''}
                         ${lic.locked ? `<button class="action-btn reset" onclick="resetLock('${lic.key}')">💀</button>` : ''}
                         <button class="action-btn delete" onclick="deleteKey('${lic.key}')">🗑️</button>
                     </td>
@@ -919,6 +944,11 @@
 
         function copyKey(key) {
             navigator.clipboard.writeText(key).then(() => showToast(`📋 Copied: ${key}`));
+        }
+
+        async function clearTestDevice(key) {
+            if (!confirm(`Clear device restriction for ${key}? This will allow devices to use other test keys.`)) return;
+            apiCall('/api/admin/clear_test_device', { license_key: key }, "🔓 Device restriction cleared!");
         }
 
         async function editExpiry(key, currentExpiry) {

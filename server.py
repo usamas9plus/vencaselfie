@@ -278,6 +278,28 @@ def admin_delete_license():
         return jsonify({"success": True})
     except Exception as e: return jsonify({"success": False, "message": str(e)}), 500
 
+@app.route('/api/admin/clear_test_device', methods=['POST'])
+def admin_clear_test_device():
+    """Clear test key device restriction for a specific license key"""
+    try:
+        data = request.json or {}
+        if data.get('admin_secret') != ADMIN_SECRET_KEY: return jsonify({"success": False}), 401
+        k = data.get('license_key')
+        
+        # Get all devices that used this key
+        devices = redis.smembers(f"key_devices:{k}")
+        cleared = 0
+        
+        for device_hash in devices:
+            # Check if this device is mapped to this key
+            mapped_key = redis.get(f"test_key_device_map:{device_hash}")
+            if mapped_key == k:
+                redis.delete(f"test_key_device_map:{device_hash}")
+                cleared += 1
+        
+        return jsonify({"success": True, "cleared": cleared})
+    except Exception as e: return jsonify({"success": False, "message": str(e)}), 500
+
 # --- CORE ---
 
 @app.route('/api/activate_license', methods=['POST'])
