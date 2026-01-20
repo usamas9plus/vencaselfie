@@ -299,8 +299,10 @@ def activate_license():
             key_category = info.get('key_category', 'regular')
             
             # Test key device restriction check during activation
+            # Check if device used a DIFFERENT test key before
             if key_category == 'test' and incoming_hash:
-                if redis.sismember('test_key_devices', incoming_hash):
+                previous_key = redis.get(f"test_key_device_map:{incoming_hash}")
+                if previous_key and previous_key != key:
                     return jsonify({"success": False, "message": "This device has already used a test key. Please purchase a regular license."}), 403
             
             if info.get('type') == 'floating' and info.get('status') == 'unused':
@@ -314,14 +316,14 @@ def activate_license():
                 if incoming_hash:
                     redis.sadd(f"key_devices:{key}", incoming_hash)
                     if key_category == 'test':
-                        redis.sadd('test_key_devices', incoming_hash)
+                        redis.set(f"test_key_device_map:{incoming_hash}", key)  # Map device to this key
             else:
                 update_last_activity(key)
                 # Track device on regular activation too
                 if incoming_hash:
                     redis.sadd(f"key_devices:{key}", incoming_hash)
                     if key_category == 'test':
-                        redis.sadd('test_key_devices', incoming_hash)
+                        redis.set(f"test_key_device_map:{incoming_hash}", key)  # Map device to this key
 
         valid, msg, exp = _validate_license_logic(key)
         if not valid: return jsonify({"success": False, "message": msg}), 403
@@ -356,8 +358,10 @@ def create_session():
             key_category = lic_info.get('key_category', 'regular')
         
         # Test key device restriction check
+        # Check if device used a DIFFERENT test key before
         if key_category == 'test' and incoming_hash:
-            if redis.sismember('test_key_devices', incoming_hash):
+            previous_key = redis.get(f"test_key_device_map:{incoming_hash}")
+            if previous_key and previous_key != key:
                 return jsonify({"success": False, "message": "This device has already used a test key. Please purchase a regular license."}), 403
         
         lock_key = f"active_session_lock:{key}"
@@ -390,7 +394,7 @@ def create_session():
             if incoming_hash:
                 redis.sadd(f"key_devices:{key}", incoming_hash)  # Track device for this key
                 if key_category == 'test':
-                    redis.sadd('test_key_devices', incoming_hash)  # Mark device as used for test keys
+                    redis.set(f"test_key_device_map:{incoming_hash}", key)  # Map device to this key
             # Generate and store short code
             short_code = generate_short_code()
             client_link = f"{server_url}/selfie/?session={sess_id}"
