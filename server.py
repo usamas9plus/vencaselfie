@@ -325,7 +325,7 @@ def activate_license():
             if key_category == 'test' and incoming_hash:
                 previous_key = redis.get(f"test_key_device_map:{incoming_hash}")
                 if previous_key and previous_key != key:
-                    return jsonify({"success": False, "message": "This device has already used a test key. Please purchase a regular license."}), 403
+                    return jsonify({"success": False, "message": "Sorry, you have previously used a Test Key, If you liked the Vecna Selfie please consider purchasing!"}), 403
             
             if info.get('type') == 'floating' and info.get('status') == 'unused':
                 info['expiry'] = (datetime.now() + timedelta(days=info.get('duration_days', 30))).strftime("%Y-%m-%d")
