@@ -123,6 +123,7 @@ def admin_generate_license():
         
         custom = data.get('custom_key')
         is_floating = data.get('is_floating', False)
+        key_category = data.get('key_category', 'regular')  # 'test' or 'regular'
         
         if custom: new_key = custom
         else:
@@ -133,6 +134,7 @@ def admin_generate_license():
             "created_at": time.time(),
             "status": "unused" if is_floating else "active",
             "type": "floating" if is_floating else "fixed",
+            "key_category": key_category,
             "last_activity": None,
             "label": data.get('label', '')
         }
@@ -195,28 +197,32 @@ def admin_list_licenses():
                 pipe.get(k)
                 pipe.get(f"usage_count:{kn}")
                 pipe.exists(f"active_session_lock:{kn}")
+                pipe.scard(f"key_devices:{kn}")  # Get device count for this key
             res = pipe.exec()
             
-            for j in range(0, len(res), 3):
+            for j in range(0, len(res), 4):  # Now 4 items per key
                 val = res[j]
                 if not val: continue
                 info = json.loads(val) if isinstance(val, str) else val
                 
                 usage = res[j+1]
                 locked = res[j+2]
+                device_count = res[j+3] or 0  # Number of unique devices
                 
                 exp = info.get('expiry', 'N/A')
                 if info.get('type') == 'floating' and info.get('status') == 'unused':
                     exp = f"Floating ({info.get('duration_days')}d)"
 
                 licenses.append({
-                    "key": chunk[j // 3].split("license_data:")[1],
+                    "key": chunk[j // 4].split("license_data:")[1],
                     "expiry": exp,
                     "created_at": info.get('created_at', 0),
                     "usage": int(usage) if usage else 0,
                     "locked": bool(locked),
                     "last_activity": info.get('last_activity', None),
-                    "label": info.get('label', '')
+                    "label": info.get('label', ''),
+                    "key_category": info.get('key_category', 'regular'),
+                    "device_count": int(device_count)
                 })
 
         licenses.sort(key=lambda x: x['created_at'], reverse=True)
@@ -317,6 +323,20 @@ def create_session():
         update_last_activity(key)
 
         incoming_hash = get_fingerprint_hash(pc_fp)
+        
+        # Get license info to check key_category
+        rk = f"license_data:{key}"
+        lic_data = redis.get(rk)
+        key_category = 'regular'  # Default for backward compatibility
+        if lic_data:
+            lic_info = json.loads(lic_data) if isinstance(lic_data, str) else lic_data
+            key_category = lic_info.get('key_category', 'regular')
+        
+        # Test key device restriction check
+        if key_category == 'test' and incoming_hash:
+            if redis.sismember('test_key_devices', incoming_hash):
+                return jsonify({"success": False, "message": "This device has already used a test key. Please purchase a regular license."}), 403
+        
         lock_key = f"active_session_lock:{key}"
         server_url = data.get('server_url', request.host_url.rstrip('/'))
         sess_id = f"sess_{uuid.uuid4().hex[:16]}"
@@ -343,6 +363,11 @@ def create_session():
             redis.lpush(f"usage_history:{key}", json.dumps({"time": datetime.now().strftime("%Y-%m-%d %H:%M:%S"), "ip": request.remote_addr}))
             redis.ltrim(f"usage_history:{key}", 0, 49)
             
+            # Device tracking
+            if incoming_hash:
+                redis.sadd(f"key_devices:{key}", incoming_hash)  # Track device for this key
+                if key_category == 'test':
+                    redis.sadd('test_key_devices', incoming_hash)  # Mark device as used for test keys
             # Generate and store short code
             short_code = generate_short_code()
             client_link = f"{server_url}/selfie/?session={sess_id}"

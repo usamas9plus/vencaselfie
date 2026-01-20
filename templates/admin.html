@@ -619,6 +619,15 @@
                     <input type="number" id="genCount" value="1" min="1" max="50" style="width:100%">
                 </div>
                 <div class="form-group">
+                    <label>Key Category</label>
+                    <div class="radio-group">
+                        <label style="color:var(--green)"><input type="radio" name="keyCategory" value="regular"
+                                checked> 📦 Regular</label>
+                        <label style="color:var(--orange)"><input type="radio" name="keyCategory" value="test"> 🧪
+                            Test</label>
+                    </div>
+                </div>
+                <div class="form-group">
                     <label>Key Type & Duration</label>
                     <div class="radio-group">
                         <label><input type="radio" name="keyType" value="fixed" checked onclick="toggleKeyType()"> Fixed
@@ -659,18 +668,21 @@
                         <th style="width: 40px;"><input type="checkbox" id="selectAll" onclick="toggleSelectAll()"
                                 title="Select All"></th>
                         <th class="sortable" onclick="sortTable('key')" id="th-key">License Key</th>
+                        <th class="sortable" onclick="sortTable('key_category')" id="th-key_category">Type</th>
                         <th class="sortable" onclick="sortTable('label')" id="th-label">Label</th>
                         <th class="sortable" onclick="sortTable('expiry')" id="th-expiry">Expiry</th>
                         <th class="sortable" onclick="sortTable('last_activity')" id="th-last_activity">Last Activity
                         </th>
                         <th class="sortable" onclick="sortTable('usage')" id="th-usage">Uses</th>
+                        <th class="sortable" onclick="sortTable('device_count')" id="th-device_count">Devices</th>
                         <th>Status</th>
                         <th>Actions</th>
                     </tr>
                 </thead>
                 <tbody>
                     <tr>
-                        <td colspan="8" style="text-align:center; padding:40px; color:#666">Enter admin secret and click
+                        <td colspan="10" style="text-align:center; padding:40px; color:#666">Enter admin secret and
+                            click
                             Connect</td>
                     </tr>
                 </tbody>
@@ -772,7 +784,8 @@
             if (!secret || !name) return alert("Secret and Name required");
 
             const type = document.querySelector('input[name="keyType"]:checked').value;
-            let payload = { admin_secret: secret, custom_key: null };
+            const keyCategory = document.querySelector('input[name="keyCategory"]:checked').value;
+            let payload = { admin_secret: secret, custom_key: null, key_category: keyCategory };
 
             if (type === 'fixed') {
                 const dateVal = getEl('expiryDate').value;
@@ -834,20 +847,25 @@
             });
 
             if (sortedData.length === 0) {
-                tbody.innerHTML = '<tr><td colspan="8" style="text-align:center; padding:40px; color:#666">No licenses found</td></tr>';
+                tbody.innerHTML = '<tr><td colspan="10" style="text-align:center; padding:40px; color:#666">No licenses found</td></tr>';
                 return;
             }
 
             sortedData.forEach(lic => {
                 const row = document.createElement('tr');
                 const labelDisplay = lic.label ? `<span style="color:#d4a03a">${lic.label}</span>` : '<span style="color:#555">—</span>';
+                const categoryBadge = lic.key_category === 'test'
+                    ? '<span class="badge" style="background:rgba(255,136,0,0.2);color:var(--orange);border:1px solid var(--orange)">TEST</span>'
+                    : '<span class="badge" style="background:rgba(0,255,0,0.1);color:var(--green);border:1px solid var(--green)">REGULAR</span>';
                 row.innerHTML = `
                     <td><input type="checkbox" class="row-checkbox" data-key="${lic.key}" onclick="updateBulkActions()"></td>
                     <td class="key-text">${lic.key}</td>
+                    <td>${categoryBadge}</td>
                     <td>${labelDisplay} <button class="action-btn edit" onclick="editLabel('${lic.key}', '${lic.label || ''}')" style="padding:2px 6px; font-size:0.65em">🏷️</button></td>
                     <td>${lic.expiry}</td>
                     <td>${formatActivity(lic.last_activity)}</td>
                     <td>${lic.usage}</td>
+                    <td>${lic.device_count || 0}</td>
                     <td>${lic.locked ? '<span class="badge badge-busy">BUSY</span>' : '<span class="badge badge-idle">IDLE</span>'}</td>
                     <td>
                         <button class="action-btn copy" onclick="copyKey('${lic.key}')">📋</button>
