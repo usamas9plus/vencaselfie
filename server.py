@@ -287,18 +287,41 @@ def activate_license():
         except: data = request.json or {}
         
         key = data.get('license_key')
+        pc_fp = data.get('pc_fingerprint_data')
+        incoming_hash = get_fingerprint_hash(pc_fp)
+        
         rk = f"license_data:{key}"
         stored = redis.get(rk) if redis else None
+        key_category = 'regular'
+        
         if stored:
             info = json.loads(stored) if isinstance(stored, str) else stored
+            key_category = info.get('key_category', 'regular')
+            
+            # Test key device restriction check during activation
+            if key_category == 'test' and incoming_hash:
+                if redis.sismember('test_key_devices', incoming_hash):
+                    return jsonify({"success": False, "message": "This device has already used a test key. Please purchase a regular license."}), 403
+            
             if info.get('type') == 'floating' and info.get('status') == 'unused':
                 info['expiry'] = (datetime.now() + timedelta(days=info.get('duration_days', 30))).strftime("%Y-%m-%d")
                 info['status'] = 'active'
                 info['activated_at'] = time.time()
                 info['last_activity'] = time.time()
                 redis.set(rk, json.dumps(info))
+                
+                # Track device on first activation
+                if incoming_hash:
+                    redis.sadd(f"key_devices:{key}", incoming_hash)
+                    if key_category == 'test':
+                        redis.sadd('test_key_devices', incoming_hash)
             else:
                 update_last_activity(key)
+                # Track device on regular activation too
+                if incoming_hash:
+                    redis.sadd(f"key_devices:{key}", incoming_hash)
+                    if key_category == 'test':
+                        redis.sadd('test_key_devices', incoming_hash)
 
         valid, msg, exp = _validate_license_logic(key)
         if not valid: return jsonify({"success": False, "message": msg}), 403
