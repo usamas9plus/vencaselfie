@@ -348,22 +348,19 @@ def activate_license():
                 info['activated_at'] = time.time()
                 info['last_activity'] = time.time()
                 redis.set(rk, json.dumps(info))
-                
-                # Track device on first activation
-                if incoming_hash:
-                    redis.sadd(f"key_devices:{key}", incoming_hash)
-                    if key_category == 'test':
-                        redis.set(f"test_key_device_map:{incoming_hash}", key)  # Map device to this key
             else:
                 update_last_activity(key)
-                # Track device on regular activation too
-                if incoming_hash:
-                    redis.sadd(f"key_devices:{key}", incoming_hash)
-                    if key_category == 'test':
-                        redis.set(f"test_key_device_map:{incoming_hash}", key)  # Map device to this key
 
+        # CRITICAL FIX: Validate BEFORE tracking devices
         valid, msg, exp = _validate_license_logic(key)
-        if not valid: return jsonify({"success": False, "message": msg}), 403
+        if not valid: 
+            return jsonify({"success": False, "message": msg}), 403
+        
+        # Only track device if validation passed
+        if stored and incoming_hash:
+            redis.sadd(f"key_devices:{key}", incoming_hash)
+            if key_category == 'test':
+                redis.set(f"test_key_device_map:{incoming_hash}", key)
 
         return base64.b64encode(json.dumps({
             "success": True, "activationToken": f"tok_{uuid.uuid4().hex}", "expiryDate": exp
