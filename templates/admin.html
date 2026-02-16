@@ -789,92 +789,91 @@
         }
 
         async function startBatchGeneration() {
-            async function startBatchGeneration() {
-                const url = getEl('serverUrl').value.replace(/\/$/, '');
-                const secret = getEl('adminSecret').value;
-                const name = getEl('genName').value.trim().toUpperCase();
-                const count = parseInt(getEl('genCount').value);
+            const url = getEl('serverUrl').value.replace(/\/$/, '');
+            const secret = getEl('adminSecret').value;
+            const name = getEl('genName').value.trim().toUpperCase();
+            const count = parseInt(getEl('genCount').value);
 
-                if (!secret || !name) return alert("Secret and Name required");
+            if (!secret || !name) return alert("Secret and Name required");
 
-                const type = document.querySelector('input[name="keyType"]:checked').value;
-                const keyCategory = document.querySelector('input[name="keyCategory"]:checked').value;
-                let payload = { admin_secret: secret, custom_key: null, key_category: keyCategory };
+            const type = document.querySelector('input[name="keyType"]:checked').value;
+            const keyCategory = document.querySelector('input[name="keyCategory"]:checked').value;
+            let payload = { admin_secret: secret, custom_key: null, key_category: keyCategory };
 
-                if (type === 'fixed') {
-                    const dateVal = getEl('expiryDate').value;
-                    if (!dateVal) return alert("Please select an expiry date.");
-                    payload.expiry = dateVal;
+            if (type === 'fixed') {
+                const dateVal = getEl('expiryDate').value;
+                if (!dateVal) return alert("Please select an expiry date.");
+                payload.expiry = dateVal;
 
-                }
-
-                async function setTickerMessage() {
-                    const secret = getEl('adminSecret').value;
-                    const message = getEl('tickerMessage').value;
-                    const url = getEl('serverUrl').value.replace(/\/$/, '');
-
-                    if (!secret) return alert("Admin secret required");
-
-                    try {
-                        const res = await fetch(`${url}/api/admin/set_ticker_message`, {
-                            method: 'POST',
-                            headers: { 'Content-Type': 'application/json' },
-                            body: JSON.stringify({ admin_secret: secret, message: message })
-                        });
-                        const data = await res.json();
-                        if (data.success) {
-                            showToast('Ticker Updated');
-                        } else {
-                            alert('Error: ' + data.message);
-                        }
-                    } catch (e) {
-                        alert('Connection Error');
-                    }
-                }
-                payload.is_floating = false;
-            } else {
-                const daysVal = getEl('durationDays').value;
-                if (!daysVal) return alert("Please enter duration in days.");
-                payload.duration_days = daysVal;
-                payload.is_floating = true;
             }
 
-            showLoading(`Generating ${count} keys...`);
-            let generatedCount = 0;
-            let generatedKeys = [];
+            async function setTickerMessage() {
+                const secret = getEl('adminSecret').value;
+                const message = getEl('tickerMessage').value;
+                const url = getEl('serverUrl').value.replace(/\/$/, '');
 
-            for (let i = 0; i < count; i++) {
-                const randomCode = Math.floor(1000 + Math.random() * 9000);
-                const newKey = `VECNA-${name}-${randomCode}`;
-                payload.custom_key = newKey;
+                if (!secret) return alert("Admin secret required");
 
                 try {
-                    const res = await fetch(`${url}/api/admin/generate_license`, {
+                    const res = await fetch(`${url}/api/admin/set_ticker_message`, {
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify(payload)
+                        body: JSON.stringify({ admin_secret: secret, message: message })
                     });
                     const data = await res.json();
                     if (data.success) {
-                        generatedCount++;
-                        generatedKeys.push(data.license_key || newKey);
+                        showToast('Ticker Updated');
+                    } else {
+                        alert('Error: ' + data.message);
                     }
-                } catch (e) { }
+                } catch (e) {
+                    alert('Connection Error');
+                }
             }
-            hideLoading();
+            payload.is_floating = false;
+        } else {
+            const daysVal = getEl('durationDays').value;
+            if (!daysVal) return alert("Please enter duration in days.");
+            payload.duration_days = daysVal;
+            payload.is_floating = true;
+        }
 
-            // Copy all keys to clipboard
-            if (generatedKeys.length > 0) {
-                const keysText = generatedKeys.join('\n');
-                navigator.clipboard.writeText(keysText).then(() => {
-                    showToast(`✅ Generated ${generatedCount} keys! Copied to clipboard.`);
-                }).catch(() => {
-                    showToast(`✅ Generated ${generatedCount} keys!`);
+        showLoading(`Generating ${count} keys...`);
+        let generatedCount = 0;
+        let generatedKeys = [];
+
+        for (let i = 0; i < count; i++) {
+            const randomCode = Math.floor(1000 + Math.random() * 9000);
+            const newKey = `VECNA-${name}-${randomCode}`;
+            payload.custom_key = newKey;
+
+            try {
+                const res = await fetch(`${url}/api/admin/generate_license`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload)
                 });
-            } else {
+                const data = await res.json();
+                if (data.success) {
+                    generatedCount++;
+                    generatedKeys.push(data.license_key || newKey);
+                }
+            } catch (e) { }
+        }
+        hideLoading();
+
+        // Copy all keys to clipboard
+        if (generatedKeys.length > 0) {
+            const keysText = generatedKeys.join('\n');
+            navigator.clipboard.writeText(keysText).then(() => {
+                showToast(`✅ Generated ${generatedCount} keys! Copied to clipboard.`);
+            }).catch(() => {
                 showToast(`✅ Generated ${generatedCount} keys!`);
-            }
-            fetchAllData();
+            });
+        } else {
+            showToast(`✅ Generated ${generatedCount} keys!`);
+        }
+        fetchAllData();
         }
 
         function sortTable(column) {
