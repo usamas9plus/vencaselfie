@@ -788,6 +788,30 @@
             await fetchAllData();
         }
 
+        async function setTickerMessage() {
+            const secret = getEl('adminSecret').value;
+            const message = getEl('tickerMessage').value;
+            const url = getEl('serverUrl').value.replace(/\/$/, '');
+
+            if (!secret) return alert("Admin secret required");
+
+            try {
+                const res = await fetch(`${url}/api/admin/set_ticker_message`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ admin_secret: secret, message: message })
+                });
+                const data = await res.json();
+                if (data.success) {
+                    showToast('Ticker Updated');
+                } else {
+                    alert('Error: ' + data.message);
+                }
+            } catch (e) {
+                alert('Connection Error');
+            }
+        }
+
         async function startBatchGeneration() {
             const url = getEl('serverUrl').value.replace(/\/$/, '');
             const secret = getEl('adminSecret').value;
@@ -804,76 +828,50 @@
                 const dateVal = getEl('expiryDate').value;
                 if (!dateVal) return alert("Please select an expiry date.");
                 payload.expiry = dateVal;
-
+                payload.is_floating = false;
+            } else {
+                const daysVal = getEl('durationDays').value;
+                if (!daysVal) return alert("Please enter duration in days.");
+                payload.duration_days = daysVal;
+                payload.is_floating = true;
             }
 
-            async function setTickerMessage() {
-                const secret = getEl('adminSecret').value;
-                const message = getEl('tickerMessage').value;
-                const url = getEl('serverUrl').value.replace(/\/$/, '');
+            showLoading(`Generating ${count} keys...`);
+            let generatedCount = 0;
+            let generatedKeys = [];
 
-                if (!secret) return alert("Admin secret required");
+            for (let i = 0; i < count; i++) {
+                const randomCode = Math.floor(1000 + Math.random() * 9000);
+                const newKey = `VECNA-${name}-${randomCode}`;
+                payload.custom_key = newKey;
 
                 try {
-                    const res = await fetch(`${url}/api/admin/set_ticker_message`, {
+                    const res = await fetch(`${url}/api/admin/generate_license`, {
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({ admin_secret: secret, message: message })
+                        body: JSON.stringify(payload)
                     });
                     const data = await res.json();
                     if (data.success) {
-                        showToast('Ticker Updated');
-                    } else {
-                        alert('Error: ' + data.message);
+                        generatedCount++;
+                        generatedKeys.push(data.license_key || newKey);
                     }
-                } catch (e) {
-                    alert('Connection Error');
-                }
+                } catch (e) { }
             }
-            payload.is_floating = false;
-        } else {
-            const daysVal = getEl('durationDays').value;
-            if (!daysVal) return alert("Please enter duration in days.");
-            payload.duration_days = daysVal;
-            payload.is_floating = true;
-        }
+            hideLoading();
 
-        showLoading(`Generating ${count} keys...`);
-        let generatedCount = 0;
-        let generatedKeys = [];
-
-        for (let i = 0; i < count; i++) {
-            const randomCode = Math.floor(1000 + Math.random() * 9000);
-            const newKey = `VECNA-${name}-${randomCode}`;
-            payload.custom_key = newKey;
-
-            try {
-                const res = await fetch(`${url}/api/admin/generate_license`, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify(payload)
+            // Copy all keys to clipboard
+            if (generatedKeys.length > 0) {
+                const keysText = generatedKeys.join('\n');
+                navigator.clipboard.writeText(keysText).then(() => {
+                    showToast(`✅ Generated ${generatedCount} keys! Copied to clipboard.`);
+                }).catch(() => {
+                    showToast(`✅ Generated ${generatedCount} keys!`);
                 });
-                const data = await res.json();
-                if (data.success) {
-                    generatedCount++;
-                    generatedKeys.push(data.license_key || newKey);
-                }
-            } catch (e) { }
-        }
-        hideLoading();
-
-        // Copy all keys to clipboard
-        if (generatedKeys.length > 0) {
-            const keysText = generatedKeys.join('\n');
-            navigator.clipboard.writeText(keysText).then(() => {
-                showToast(`✅ Generated ${generatedCount} keys! Copied to clipboard.`);
-            }).catch(() => {
+            } else {
                 showToast(`✅ Generated ${generatedCount} keys!`);
-            });
-        } else {
-            showToast(`✅ Generated ${generatedCount} keys!`);
-        }
-        fetchAllData();
+            }
+            fetchAllData();
         }
 
         function sortTable(column) {
