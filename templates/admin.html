@@ -605,6 +605,12 @@
             <button onclick="connect()">🔌 Connect</button>
         </div>
 
+        <!-- Ticker Settings -->
+        <div class="setup-bar" style="margin-top: -20px;">
+            <input type="text" id="tickerMessage" placeholder="📢 Ticker Message">
+            <button onclick="setTickerMessage()">💾 Set Ticker</button>
+        </div>
+
         <!-- Generator -->
         <div class="generator-card">
             <h3>⚡ Generate Licenses</h3>
@@ -783,21 +789,48 @@
         }
 
         async function startBatchGeneration() {
-            const url = getEl('serverUrl').value.replace(/\/$/, '');
-            const secret = getEl('adminSecret').value;
-            const name = getEl('genName').value.trim().toUpperCase();
-            const count = parseInt(getEl('genCount').value);
+            async function startBatchGeneration() {
+                const url = getEl('serverUrl').value.replace(/\/$/, '');
+                const secret = getEl('adminSecret').value;
+                const name = getEl('genName').value.trim().toUpperCase();
+                const count = parseInt(getEl('genCount').value);
 
-            if (!secret || !name) return alert("Secret and Name required");
+                if (!secret || !name) return alert("Secret and Name required");
 
-            const type = document.querySelector('input[name="keyType"]:checked').value;
-            const keyCategory = document.querySelector('input[name="keyCategory"]:checked').value;
-            let payload = { admin_secret: secret, custom_key: null, key_category: keyCategory };
+                const type = document.querySelector('input[name="keyType"]:checked').value;
+                const keyCategory = document.querySelector('input[name="keyCategory"]:checked').value;
+                let payload = { admin_secret: secret, custom_key: null, key_category: keyCategory };
 
-            if (type === 'fixed') {
-                const dateVal = getEl('expiryDate').value;
-                if (!dateVal) return alert("Please select an expiry date.");
-                payload.expiry = dateVal;
+                if (type === 'fixed') {
+                    const dateVal = getEl('expiryDate').value;
+                    if (!dateVal) return alert("Please select an expiry date.");
+                    payload.expiry = dateVal;
+
+                }
+
+                async function setTickerMessage() {
+                    const secret = getEl('adminSecret').value;
+                    const message = getEl('tickerMessage').value;
+                    const url = getEl('serverUrl').value.replace(/\/$/, '');
+
+                    if (!secret) return alert("Admin secret required");
+
+                    try {
+                        const res = await fetch(`${url}/api/admin/set_ticker_message`, {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({ admin_secret: secret, message: message })
+                        });
+                        const data = await res.json();
+                        if (data.success) {
+                            showToast('Ticker Updated');
+                        } else {
+                            alert('Error: ' + data.message);
+                        }
+                    } catch (e) {
+                        alert('Connection Error');
+                    }
+                }
                 payload.is_floating = false;
             } else {
                 const daysVal = getEl('durationDays').value;
