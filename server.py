@@ -293,6 +293,24 @@ def admin_delete_license():
         return jsonify({"success": True})
     except Exception as e: return jsonify({"success": False, "message": str(e)}), 500
 
+@app.route('/api/admin/set_ticker_message', methods=['POST'])
+def admin_set_ticker_message():
+    try:
+        data = request.json or {}
+        if data.get('admin_secret') != ADMIN_SECRET_KEY: return jsonify({"success": False}), 401
+        
+        message = data.get('message', '')
+        redis.set("ticker_message", message)
+        return jsonify({"success": True})
+    except Exception as e: return jsonify({"success": False, "message": str(e)}), 500
+
+@app.route('/api/get_ticker_message', methods=['GET'])
+def get_ticker_message():
+    try:
+        msg = redis.get("ticker_message")
+        return jsonify({"success": True, "message": msg if msg else ""})
+    except: return jsonify({"success": False, "message": ""})
+
 @app.route('/api/admin/clear_test_device', methods=['POST'])
 def admin_clear_test_device():
     """Clear test key device restriction for a specific license key"""
