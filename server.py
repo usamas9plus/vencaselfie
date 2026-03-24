@@ -52,6 +52,13 @@ def _validate_license_logic(license_key):
         if stored:
             try:
                 info = json.loads(stored) if isinstance(stored, str) else stored
+                if info.get("key_category", "regular") == "regular":
+                    payment_status = info.get("payment_status", "Payment Received")
+                    if payment_status == "Payment Suspended":
+                        return False, "System has automatically suspended your key as your payment is still pending, Please make the payment to continue", None
+                    elif payment_status == "Payment Pending" and time.time() - info.get("created_at", time.time()) > 3 * 24 * 60 * 60:
+                        return False, "System has automatically suspended your key as your payment is still pending, Please make the payment to continue", None
+
                 if info.get('type') == 'floating' and info.get('status') == 'unused':
                     return True, "Ready to activate", None
                 expiry_str = info.get("expiry")
@@ -145,13 +152,15 @@ def admin_generate_license():
             chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789"
             new_key = "-".join([''.join(secrets.choice(chars) for _ in range(4)) for _ in range(4)])
 
+        payment_status = "Payment Pending" if key_category == "regular" else "Payment Received"
         lic_data = {
             "created_at": time.time(),
             "status": "unused" if is_floating else "active",
             "type": "floating" if is_floating else "fixed",
             "key_category": key_category,
             "last_activity": None,
-            "label": data.get('label', '')
+            "label": data.get('label', ''),
+            "payment_status": payment_status
         }
         
         if is_floating:
@@ -237,11 +246,28 @@ def admin_list_licenses():
                     "last_activity": info.get('last_activity', None),
                     "label": info.get('label', ''),
                     "key_category": info.get('key_category', 'regular'),
-                    "device_count": int(device_count)
+                    "device_count": int(device_count),
+                    "payment_status": info.get('payment_status', 'Payment Received')
                 })
 
         licenses.sort(key=lambda x: x['created_at'], reverse=True)
         return jsonify({"success": True, "licenses": licenses})
+    except Exception as e: return jsonify({"success": False, "message": str(e)}), 500
+
+@app.route('/api/admin/update_payment_status', methods=['POST'])
+def admin_update_payment_status():
+    try:
+        data = request.json or {}
+        if data.get('admin_secret') != ADMIN_SECRET_KEY: return jsonify({"success": False}), 401
+        
+        rk = f"license_data:{data.get('license_key')}"
+        if not redis.exists(rk): return jsonify({"success": False}), 404
+        
+        stored = redis.get(rk)
+        info = json.loads(stored) if isinstance(stored, str) else stored
+        info['payment_status'] = data.get('payment_status', 'Payment Received')
+        redis.set(rk, json.dumps(info))
+        return jsonify({"success": True})
     except Exception as e: return jsonify({"success": False, "message": str(e)}), 500
 
 @app.route('/api/admin/update_label', methods=['POST'])
