@@ -55,9 +55,9 @@ def _validate_license_logic(license_key):
                 if info.get("key_category", "regular") == "regular":
                     payment_status = info.get("payment_status", "Payment Received")
                     if payment_status == "Payment Suspended":
-                        return False, "System has automatically suspended your key as your payment is still pending, Please make the payment to continue", None
+                        return False, "System has automatically suspended your key as your payment is still pending\n\nPlease make the payment to continue", None
                     elif payment_status == "Payment Pending" and time.time() - info.get("created_at", time.time()) > 3 * 24 * 60 * 60:
-                        return False, "System has automatically suspended your key as your payment is still pending, Please make the payment to continue", None
+                        return False, "System has automatically suspended your key as your payment is still pending\n\nPlease make the payment to continue", None
 
                 if info.get('type') == 'floating' and info.get('status') == 'unused':
                     return True, "Ready to activate", None
