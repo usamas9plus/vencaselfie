@@ -563,6 +563,22 @@
         </div>
     </div>
 
+    <div id="paymentModal" class="modal">
+        <div class="modal-content">
+            <h2>💳 Payment Status</h2>
+            <p style="color: #ccc; margin-bottom: 20px;">Change payment status for <span id="paymentModalKey" style="color: var(--green); font-family: 'Orbitron'; font-weight: bold;"></span></p>
+            
+            <div style="display: flex; flex-direction: column; gap: 15px;">
+                <button onclick="submitPaymentStatus('Payment Received')" style="background: linear-gradient(180deg, #005500 0%, #003300 100%); border-color: var(--green);">💰 Mark as Received</button>
+                <button onclick="submitPaymentStatus('Payment Pending')" style="background: linear-gradient(180deg, #885500 0%, #442200 100%); border-color: orange;">⏳ Mark as Pending</button>
+                <button onclick="submitPaymentStatus('Payment Suspended')" style="background: linear-gradient(180deg, var(--dark-red) 0%, #500000 100%); border-color: var(--red);">🛑 Suspend Immediately</button>
+            </div>
+
+            <button onclick="document.getElementById('paymentModal').style.display='none'"
+                style="margin-top:20px; width:100%; background: #222; border-color: #444;">Cancel</button>
+        </div>
+    </div>
+
     <div class="container">
         <div class="header">
             <h1>🔴 Vecna Command Center</h1>
@@ -997,17 +1013,24 @@
             if (newLabel !== null) apiCall('/api/admin/update_label', { license_key: key, label: newLabel }, "🏷️ Label Updated!");
         }
 
-        async function editPaymentStatus(key, currentStatus) {
-            const choice = prompt(`Set Payment Status for ${key}:\n1 = Received\n2 = Pending\n3 = Suspended`, 
-                                  currentStatus === 'Payment Received' ? '1' : 
-                                  currentStatus === 'Payment Pending' ? '2' : '3');
-            if (choice === '1') {
-                apiCall('/api/admin/update_payment_status', { license_key: key, payment_status: 'Payment Received' }, '💰 Status updated to Received');
-            } else if (choice === '2') {
-                apiCall('/api/admin/update_payment_status', { license_key: key, payment_status: 'Payment Pending' }, '⏳ Status updated to Pending');
-            } else if (choice === '3') {
-                apiCall('/api/admin/update_payment_status', { license_key: key, payment_status: 'Payment Suspended' }, '🛑 Status updated to Suspended');
-            }
+        let currentEditingPaymentKey = null;
+
+        function editPaymentStatus(key, currentStatus) {
+            currentEditingPaymentKey = key;
+            document.getElementById('paymentModalKey').textContent = key;
+            document.getElementById('paymentModal').style.display = 'flex';
+        }
+
+        async function submitPaymentStatus(status) {
+            if (!currentEditingPaymentKey) return;
+            document.getElementById('paymentModal').style.display = 'none';
+            
+            let message = '';
+            if (status === 'Payment Received') message = '💰 Status updated to Received';
+            else if (status === 'Payment Pending') message = '⏳ Status updated to Pending';
+            else if (status === 'Payment Suspended') message = '🛑 Status updated to Suspended';
+            
+            apiCall('/api/admin/update_payment_status', { license_key: currentEditingPaymentKey, payment_status: status }, message);
         }
 
         async function resetLock(key) {
