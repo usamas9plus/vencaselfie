@@ -677,6 +677,7 @@
                         <th class="sortable" onclick="sortTable('key')" id="th-key">License Key</th>
                         <th class="sortable" onclick="sortTable('key_category')" id="th-key_category">Type</th>
                         <th class="sortable" onclick="sortTable('label')" id="th-label">Label</th>
+                        <th class="sortable" onclick="sortTable('payment_status')" id="th-payment_status">Payment</th>
                         <th class="sortable" onclick="sortTable('expiry')" id="th-expiry">Expiry</th>
                         <th class="sortable" onclick="sortTable('last_activity')" id="th-last_activity">Last Activity
                         </th>
@@ -911,11 +912,16 @@
                 const categoryBadge = lic.key_category === 'test'
                     ? '<span class="badge" style="background:rgba(255,136,0,0.2);color:var(--orange);border:1px solid var(--orange)">TEST</span>'
                     : '<span class="badge" style="background:rgba(0,255,0,0.1);color:var(--green);border:1px solid var(--green)">REGULAR</span>';
+                const paymentBadge = lic.key_category === 'test' ? '<span class="badge" style="background:rgba(128,128,128,0.2);color:#888;border:1px solid #888">N/A</span>'
+                    : (lic.payment_status === 'Payment Pending' ? '<span class="badge" style="background:rgba(255,165,0,0.2);color:orange;border:1px solid orange">PENDING</span>'
+                        : (lic.payment_status === 'Payment Suspended' ? '<span class="badge" style="background:rgba(255,0,0,0.2);color:var(--red);border:1px solid var(--red)">SUSPENDED</span>'
+                            : '<span class="badge" style="background:rgba(0,255,0,0.1);color:var(--green);border:1px solid var(--green)">RECEIVED</span>'));
                 row.innerHTML = `
                     <td><input type="checkbox" class="row-checkbox" data-key="${lic.key}" onclick="updateBulkActions()"></td>
                     <td class="key-text">${lic.key}</td>
                     <td>${categoryBadge}</td>
                     <td>${labelDisplay} <button class="action-btn edit" onclick="editLabel('${lic.key}', '${lic.label || ''}')" style="padding:2px 6px; font-size:0.65em">🏷️</button></td>
+                    <td>${paymentBadge} <button class="action-btn edit" onclick="editPaymentStatus('${lic.key}', '${lic.payment_status || 'Payment Received'}')" style="padding:2px 6px; font-size:0.65em">✏️</button></td>
                     <td>${lic.expiry}</td>
                     <td>${formatActivity(lic.last_activity)}</td>
                     <td>${lic.usage}</td>
@@ -989,6 +995,19 @@
         async function editLabel(key, currentLabel) {
             const newLabel = prompt("Enter label for this key (e.g. user name, purpose):", currentLabel);
             if (newLabel !== null) apiCall('/api/admin/update_label', { license_key: key, label: newLabel }, "🏷️ Label Updated!");
+        }
+
+        async function editPaymentStatus(key, currentStatus) {
+            const choice = prompt(`Set Payment Status for ${key}:\n1 = Received\n2 = Pending\n3 = Suspended`, 
+                                  currentStatus === 'Payment Received' ? '1' : 
+                                  currentStatus === 'Payment Pending' ? '2' : '3');
+            if (choice === '1') {
+                apiCall('/api/admin/update_payment_status', { license_key: key, payment_status: 'Payment Received' }, '💰 Status updated to Received');
+            } else if (choice === '2') {
+                apiCall('/api/admin/update_payment_status', { license_key: key, payment_status: 'Payment Pending' }, '⏳ Status updated to Pending');
+            } else if (choice === '3') {
+                apiCall('/api/admin/update_payment_status', { license_key: key, payment_status: 'Payment Suspended' }, '🛑 Status updated to Suspended');
+            }
         }
 
         async function resetLock(key) {
