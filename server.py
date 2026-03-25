@@ -55,15 +55,20 @@ def _validate_license_logic(license_key):
                 if info.get("key_category", "regular") == "regular":
                     payment_status = info.get("payment_status", "Payment Received")
                     if payment_status == "Payment Suspended":
-                        return False, "System has automatically suspended your key as your payment is still pending\n\nPlease make the payment to continue", None
-                    elif payment_status == "Payment Pending" and time.time() - info.get("created_at", time.time()) > 3 * 24 * 60 * 60:
-                        return False, "System has automatically suspended your key as your payment is still pending\n\nPlease make the payment to continue", None
+                        return False, "System has automatically suspended your key as your payment is still pending, Please make the payment to continue", None
+                    elif payment_status == "Payment Pending":
+                        pending_since = info.get("payment_pending_since", info.get("created_at", time.time()))
+                        if time.time() - pending_since > 3 * 24 * 60 * 60:
+                            return False, "System has automatically suspended your key as your payment is still pending, Please make the payment to continue", None
 
                 if info.get('type') == 'floating' and info.get('status') == 'unused':
                     return True, "Ready to activate", None
                 expiry_str = info.get("expiry")
                 if expiry_str:
-                    expiry_date = datetime.strptime(expiry_str, "%Y-%m-%d")
+                    try:
+                        expiry_date = datetime.strptime(expiry_str, "%Y-%m-%d %H:%M:%S")
+                    except ValueError:
+                        expiry_date = datetime.strptime(expiry_str, "%Y-%m-%d")
                     if datetime.now() > expiry_date: return False, "License key has expired. Please renew to continue", None
                     expiry_timestamp_ms = expiry_date.timestamp() * 1000
                 else: expiry_timestamp_ms = (time.time() * 1000) + 31536000000
@@ -75,7 +80,10 @@ def _validate_license_logic(license_key):
     
     if license_key in allowed_keys:
         try:
-            expiry_date = datetime.strptime(allowed_keys[license_key], "%Y-%m-%d")
+            try:
+                expiry_date = datetime.strptime(allowed_keys[license_key], "%Y-%m-%d %H:%M:%S")
+            except ValueError:
+                expiry_date = datetime.strptime(allowed_keys[license_key], "%Y-%m-%d")
             if datetime.now() > expiry_date: return False, "License key has expired. Please renew to continue", None
             expiry_timestamp_ms = expiry_date.timestamp() * 1000
         except: expiry_timestamp_ms = (time.time() * 1000) + 31536000000
@@ -162,13 +170,15 @@ def admin_generate_license():
             "label": data.get('label', ''),
             "payment_status": payment_status
         }
+        if payment_status == "Payment Pending":
+            lic_data["payment_pending_since"] = time.time()
         
         if is_floating:
             if not data.get('duration_days'): return jsonify({"success": False}), 400
             lic_data['duration_days'] = int(data.get('duration_days'))
         else:
             if not data.get('expiry'): return jsonify({"success": False}), 400
-            lic_data['expiry'] = data.get('expiry')
+            lic_data['expiry'] = data.get('expiry') + datetime.now().strftime(" %H:%M:%S")
 
         rk = f"license_data:{new_key}"
         if redis.exists(rk) and not custom: return jsonify({"success": False, "message": "Collision"}), 500
@@ -188,7 +198,15 @@ def admin_update_expiry():
         
         stored = redis.get(rk)
         info = json.loads(stored) if isinstance(stored, str) else stored
-        info['expiry'] = data.get('new_expiry')
+        
+        new_date = data.get('new_expiry')
+        existing_expiry = info.get('expiry', '')
+        if " " in existing_expiry:
+            time_part = " " + existing_expiry.split(" ")[1]
+        else:
+            time_part = datetime.fromtimestamp(info.get('created_at', time.time())).strftime(" %H:%M:%S")
+            
+        info['expiry'] = f"{new_date}{time_part}"
         redis.set(rk, json.dumps(info))
         return jsonify({"success": True})
     except Exception as e: return jsonify({"success": False, "message": str(e)}), 500
@@ -265,7 +283,12 @@ def admin_update_payment_status():
         
         stored = redis.get(rk)
         info = json.loads(stored) if isinstance(stored, str) else stored
-        info['payment_status'] = data.get('payment_status', 'Payment Received')
+        
+        new_status = data.get('payment_status', 'Payment Received')
+        if new_status == 'Payment Pending' and info.get('payment_status') != 'Payment Pending':
+            info['payment_pending_since'] = time.time()
+            
+        info['payment_status'] = new_status
         redis.set(rk, json.dumps(info))
         return jsonify({"success": True})
     except Exception as e: return jsonify({"success": False, "message": str(e)}), 500
@@ -387,7 +410,7 @@ def activate_license():
                     return jsonify({"success": False, "message": "Sorry, you have previously used a Test Key, If you liked the Vecna Selfie please consider purchasing!"}), 403
             
             if info.get('type') == 'floating' and info.get('status') == 'unused':
-                info['expiry'] = (datetime.now() + timedelta(days=info.get('duration_days', 30))).strftime("%Y-%m-%d")
+                info['expiry'] = (datetime.now() + timedelta(days=info.get('duration_days', 30))).strftime("%Y-%m-%d %H:%M:%S")
                 info['status'] = 'active'
                 info['activated_at'] = time.time()
                 info['last_activity'] = time.time()
