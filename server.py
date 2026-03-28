@@ -588,6 +588,14 @@ def report_liveness():
         info['liveness_status'] = status
         redis.set(rk, json.dumps(info))
         
+        # Add to history
+        hist_data = {
+            "time": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+            "status": f"Liveness {status}"
+        }
+        redis.lpush(f"usage_history:{key}", json.dumps(hist_data))
+        redis.ltrim(f"usage_history:{key}", 0, 49)
+        
         return jsonify({"success": True})
     except Exception as e: return jsonify({"success": False, "message": str(e)}), 500
 
