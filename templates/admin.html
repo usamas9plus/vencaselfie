@@ -1068,12 +1068,26 @@
                 });
                 const data = await res.json();
                 if (data.success && data.history.length > 0) {
-                    list.innerHTML = data.history.map(h => `
-                        <div class="history-item">
-                            <span>${h.time}</span>
-                            <span style="color:#888">${h.ip}</span>
-                        </div>
-                    `).join('');
+                    list.innerHTML = data.history.map(h => {
+                        const time = h.time || 'N/A';
+                        const ip = h.ip || '';
+                        const status = h.status || '';
+                        
+                        let detail = '';
+                        if (ip) {
+                            detail = `<span style="color:#888">${ip}</span>`;
+                        } else if (status) {
+                            const color = status.includes('Successful') ? 'var(--green)' : 'var(--red)';
+                            detail = `<span style="color:${color}; font-weight:bold; font-size:0.85em;">${status.toUpperCase()}</span>`;
+                        }
+
+                        return `
+                            <div class="history-item">
+                                <span>${time}</span>
+                                ${detail}
+                            </div>
+                        `;
+                    }).join('');
                 } else {
                     list.innerHTML = '<p style="text-align:center; color:#666">No history found</p>';
                 }
