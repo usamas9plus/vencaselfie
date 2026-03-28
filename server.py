@@ -265,7 +265,8 @@ def admin_list_licenses():
                     "label": info.get('label', ''),
                     "key_category": info.get('key_category', 'regular'),
                     "device_count": int(device_count),
-                    "payment_status": info.get('payment_status', 'Payment Received')
+                    "payment_status": info.get('payment_status', 'Payment Received'),
+                    "liveness_status": info.get('liveness_status', 'N/A')
                 })
 
         licenses.sort(key=lambda x: x['created_at'], reverse=True)
@@ -441,23 +442,6 @@ def activate_license():
         }).encode('utf-8')).decode('utf-8')
     except Exception as e: return jsonify({"success": False, "message": str(e)}), 500
 
-@app.route('/api/check_payment_status', methods=['POST'])
-def check_payment_status():
-    try:
-        try: raw = request.data.decode('utf-8'); data = json.loads(base64.b64decode(raw).decode('utf-8'))
-        except: data = request.json or {}
-        
-        key = data.get('license_key')
-        if not key: return jsonify({"success": False}), 400
-        
-        rk = f"license_data:{key}"
-        stored = redis.get(rk) if redis else None
-        if stored:
-            info = json.loads(stored) if isinstance(stored, str) else stored
-            return jsonify({"success": True, "paymentStatus": info.get('payment_status', 'Payment Received')})
-        return jsonify({"success": True, "paymentStatus": "Payment Received"})
-    except Exception as e: return jsonify({"success": False, "message": str(e)}), 500
-
 @app.route('/api/create_session', methods=['POST'])
 def create_session():
     try:
@@ -580,6 +564,31 @@ def create_session():
                 }).encode('utf-8')).decode('utf-8')
 
         return jsonify({"success": False, "message": "Link already generated on Another Device please wait for it to complete or Click on RESET SELFIE SESSION DATA"}), 409
+    except Exception as e: return jsonify({"success": False, "message": str(e)}), 500
+
+@app.route('/api/report_liveness', methods=['POST'])
+def report_liveness():
+    try:
+        try: raw = request.data.decode('utf-8'); data = json.loads(base64.b64decode(raw).decode('utf-8'))
+        except: data = request.json or {}
+        
+        key = data.get('license_key')
+        status = data.get('status')
+        
+        if not key or not status: return jsonify({"success": False, "message": "Missing data"}), 400
+        
+        valid, msg, _ = _validate_license_logic(key)
+        if not valid: return jsonify({"success": False, "message": msg}), 403
+        
+        rk = f"license_data:{key}"
+        stored = redis.get(rk)
+        if not stored: return jsonify({"success": False, "message": "Key not found"}), 404
+        
+        info = json.loads(stored) if isinstance(stored, str) else stored
+        info['liveness_status'] = status
+        redis.set(rk, json.dumps(info))
+        
+        return jsonify({"success": True})
     except Exception as e: return jsonify({"success": False, "message": str(e)}), 500
 
 @app.route('/api/cancel_session', methods=['POST'])
