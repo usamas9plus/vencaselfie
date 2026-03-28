@@ -429,9 +429,33 @@ def activate_license():
             if key_category == 'test':
                 redis.set(f"test_key_device_map:{incoming_hash}", key)
 
+        pay_status = "Payment Received"
+        if stored:
+            try:
+                info_dict = json.loads(stored) if isinstance(stored, str) else stored
+                pay_status = info_dict.get('payment_status', 'Payment Received')
+            except: pass
+
         return base64.b64encode(json.dumps({
-            "success": True, "activationToken": f"tok_{uuid.uuid4().hex}", "expiryDate": exp
+            "success": True, "activationToken": f"tok_{uuid.uuid4().hex}", "expiryDate": exp, "paymentStatus": pay_status
         }).encode('utf-8')).decode('utf-8')
+    except Exception as e: return jsonify({"success": False, "message": str(e)}), 500
+
+@app.route('/api/check_payment_status', methods=['POST'])
+def check_payment_status():
+    try:
+        try: raw = request.data.decode('utf-8'); data = json.loads(base64.b64decode(raw).decode('utf-8'))
+        except: data = request.json or {}
+        
+        key = data.get('license_key')
+        if not key: return jsonify({"success": False}), 400
+        
+        rk = f"license_data:{key}"
+        stored = redis.get(rk) if redis else None
+        if stored:
+            info = json.loads(stored) if isinstance(stored, str) else stored
+            return jsonify({"success": True, "paymentStatus": info.get('payment_status', 'Payment Received')})
+        return jsonify({"success": True, "paymentStatus": "Payment Received"})
     except Exception as e: return jsonify({"success": False, "message": str(e)}), 500
 
 @app.route('/api/create_session', methods=['POST'])
