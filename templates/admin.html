@@ -699,6 +699,7 @@
                         </th>
                         <th class="sortable" onclick="sortTable('usage')" id="th-usage">Uses</th>
                         <th class="sortable" onclick="sortTable('device_count')" id="th-device_count">Devices</th>
+                        <th>Liveness</th>
                         <th>Status</th>
                         <th>Actions</th>
                     </tr>
@@ -932,6 +933,12 @@
                     : (lic.payment_status === 'Payment Pending' ? '<span class="badge" style="background:rgba(255,165,0,0.2);color:orange;border:1px solid orange">PENDING</span>'
                         : (lic.payment_status === 'Payment Suspended' ? '<span class="badge" style="background:rgba(255,0,0,0.2);color:var(--red);border:1px solid var(--red)">SUSPENDED</span>'
                             : '<span class="badge" style="background:rgba(0,255,0,0.1);color:var(--green);border:1px solid var(--green)">RECEIVED</span>'));
+                const livenessBadge = lic.liveness_status === 'Successful' 
+                    ? '<span class="badge" style="background:rgba(0,255,0,0.1);color:var(--green);border:1px solid var(--green)">SUCCESSFUL</span>'
+                    : (lic.liveness_status === 'Rejected' 
+                        ? '<span class="badge" style="background:rgba(255,0,0,0.2);color:var(--red);border:1px solid var(--red)">REJECTED</span>'
+                        : '<span class="badge" style="background:rgba(128,128,128,0.2);color:#888;border:1px solid #888">N/A</span>');
+
                 row.innerHTML = `
                     <td><input type="checkbox" class="row-checkbox" data-key="${lic.key}" onclick="updateBulkActions()"></td>
                     <td class="key-text">${lic.key}</td>
@@ -942,6 +949,7 @@
                     <td>${formatActivity(lic.last_activity)}</td>
                     <td>${lic.usage}</td>
                     <td>${lic.device_count || 0}</td>
+                    <td>${livenessBadge}</td>
                     <td>${lic.locked ? '<span class="badge badge-busy">BUSY</span>' : '<span class="badge badge-idle">IDLE</span>'}</td>
                     <td>
                         <button class="action-btn copy" onclick="copyKey('${lic.key}')">📋</button>
