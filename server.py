@@ -49,6 +49,19 @@ def send_telegram_alert(message):
 
     threading.Thread(target=_send).start()
 
+def mask_license_key(key):
+    """Masks the middle part of a license key"""
+    if not key: return ""
+    parts = key.split('-')
+    if len(parts) >= 3:
+        # e.g. VECNA-USAMA-1208 -> VECNA-*****-1208
+        # or VECNA-XXXX-XXXX-1208 -> VECNA-*****-*****-1208
+        masked_middle = "-".join(["*****" for _ in parts[1:-1]])
+        return f"{parts[0]}-{masked_middle}-{parts[-1]}"
+    if len(key) > 8:
+        return f"{key[:4]}****{key[-4:]}"
+    return key
+
 def get_fingerprint_hash(fingerprint_data):
     if not fingerprint_data: return None
     canonical_str = json.dumps(fingerprint_data, sort_keys=True)
@@ -552,11 +565,12 @@ def create_session():
             redis.set(f"short_code:{short_code}", json.dumps({"session_id": sess_id, "link": augmented_link}), ex=300)  # 5 min TTL
             
             # Send Telegram Alert
+            now = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
             alert_msg = (
                 f"<b>🚀 NEW SELFIE LINK GENERATED!</b>\n\n"
-                f"<b>Key:</b> <code>{key}</code>\n"
-                f"<b>Code:</b> <code>{short_code}</code>\n"
+                f"<b>Key:</b> <code>{mask_license_key(key)}</code>\n"
                 f"<b>User:</b> <code>{user_id}</code>\n"
+                f"<b>Time:</b> <code>{now}</code>\n"
             )
             send_telegram_alert(alert_msg)
             
@@ -593,11 +607,12 @@ def create_session():
                 redis.set(f"short_code:{short_code}", json.dumps({"session_id": sess_id, "link": augmented_link}), ex=300)
                 
                 # Send Telegram Alert
+                now = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
                 alert_msg = (
                     f"<b>🚀 NEW SELFIE LINK GENERATED!</b>\n\n"
-                    f"<b>Key:</b> <code>{key}</code>\n"
-                    f"<b>Code:</b> <code>{short_code}</code>\n"
+                    f"<b>Key:</b> <code>{mask_license_key(key)}</code>\n"
                     f"<b>User:</b> <code>{user_id}</code>\n"
+                    f"<b>Time:</b> <code>{now}</code>\n"
                 )
                 send_telegram_alert(alert_msg)
                 
@@ -642,7 +657,7 @@ def report_liveness():
         status_icon = "🟢" if status == "Successful" else "🔴"
         alert_msg = (
             f"<b>{status_icon} LIVENESS RESULT: {status.upper()}</b>\n\n"
-            f"<b>Key:</b> <code>{key}</code>\n"
+            f"<b>Key:</b> <code>{mask_license_key(key)}</code>\n"
             f"<b>Time:</b> <code>{hist_data['time']}</code>\n"
         )
         send_telegram_alert(alert_msg)
