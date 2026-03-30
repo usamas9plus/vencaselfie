@@ -1,3 +1,4 @@
 flask
 upstash-redis
 flask-cors
+requests
