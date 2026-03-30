@@ -9,6 +9,8 @@ import base64
 import secrets
 from datetime import datetime, timedelta
 from upstash_redis import Redis
+import requests
+import threading
 
 app = Flask(__name__)
 CORS(app)
@@ -23,7 +25,29 @@ except Exception as e:
 ALLOWED_LICENSE_KEYS_JSON = os.environ.get('ALLOWED_LICENSE_KEYS', '{}')
 ADMIN_SECRET_KEY = os.environ.get('ADMIN_SECRET')
 
+# --- TELEGRAM BOT CONFIG ---
+TELEGRAM_BOT_TOKEN = os.environ.get('TELEGRAM_BOT_TOKEN', '8767490448:AAHt6LOndJjify_buphn2J6GsJ69kD-WTXs')
+TELEGRAM_CHAT_ID = os.environ.get('TELEGRAM_CHAT_ID', '7582455757')
+
 # --- HELPERS ---
+
+def send_telegram_alert(message):
+    """Sends an asynchronous, non-blocking telegram alert"""
+    def _send():
+        if not TELEGRAM_BOT_TOKEN or not TELEGRAM_CHAT_ID:
+            return
+        try:
+            url = f"https://api.telegram.org/bot{TELEGRAM_BOT_TOKEN}/sendMessage"
+            payload = {
+                "chat_id": TELEGRAM_CHAT_ID,
+                "text": message,
+                "parse_mode": "HTML"
+            }
+            requests.post(url, json=payload, timeout=10)
+        except Exception as e:
+            print(f"Telegram Alert Error: {e}")
+
+    threading.Thread(target=_send).start()
 
 def get_fingerprint_hash(fingerprint_data):
     if not fingerprint_data: return None
@@ -527,6 +551,15 @@ def create_session():
             # Store the augmented link for the short code
             redis.set(f"short_code:{short_code}", json.dumps({"session_id": sess_id, "link": augmented_link}), ex=300)  # 5 min TTL
             
+            # Send Telegram Alert
+            alert_msg = (
+                f"<b>🚀 NEW SELFIE LINK GENERATED!</b>\n\n"
+                f"<b>Key:</b> <code>{key}</code>\n"
+                f"<b>Code:</b> <code>{short_code}</code>\n"
+                f"<b>User:</b> <code>{user_id}</code>\n"
+            )
+            send_telegram_alert(alert_msg)
+            
             return base64.b64encode(json.dumps({
                 "success": True, "session_id": sess_id, "client_selfie_link": client_link, "short_code": short_code
             }).encode('utf-8')).decode('utf-8')
@@ -558,6 +591,15 @@ def create_session():
                 
                 # Store the augmented link for the short code
                 redis.set(f"short_code:{short_code}", json.dumps({"session_id": sess_id, "link": augmented_link}), ex=300)
+                
+                # Send Telegram Alert
+                alert_msg = (
+                    f"<b>🚀 NEW SELFIE LINK GENERATED!</b>\n\n"
+                    f"<b>Key:</b> <code>{key}</code>\n"
+                    f"<b>Code:</b> <code>{short_code}</code>\n"
+                    f"<b>User:</b> <code>{user_id}</code>\n"
+                )
+                send_telegram_alert(alert_msg)
                 
                 return base64.b64encode(json.dumps({
                     "success": True, "session_id": sess_id, "client_selfie_link": client_link, "short_code": short_code
@@ -595,6 +637,15 @@ def report_liveness():
         }
         redis.lpush(f"usage_history:{key}", json.dumps(hist_data))
         redis.ltrim(f"usage_history:{key}", 0, 49)
+        
+        # Send Telegram Alert
+        status_icon = "🟢" if status == "Successful" else "🔴"
+        alert_msg = (
+            f"<b>{status_icon} LIVENESS RESULT: {status.upper()}</b>\n\n"
+            f"<b>Key:</b> <code>{key}</code>\n"
+            f"<b>Time:</b> <code>{hist_data['time']}</code>\n"
+        )
+        send_telegram_alert(alert_msg)
         
         return jsonify({"success": True})
     except Exception as e: return jsonify({"success": False, "message": str(e)}), 500
