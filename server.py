@@ -570,14 +570,15 @@ def create_session():
             redis.set(f"short_code:{short_code}", json.dumps({"session_id": sess_id, "link": augmented_link}), ex=300)  # 5 min TTL
             
             # Send Telegram Alert
-            now_pkt = get_pkt_time()
-            alert_msg = (
-                f"<b>🚀 NEW SELFIE LINK GENERATED!</b>\n\n"
-                f"<b>Key:</b> <code>{mask_license_key(key)}</code>\n"
-                f"<b>User:</b> <code>{user_id}</code>\n"
-                f"<b>Time:</b> <code>{now_pkt}</code>\n"
-            )
-            send_telegram_alert(alert_msg)
+            if not data.get('is_test_link') and user_id != 'c6c2aec5-0afb-403f-9a18-d4bf36052888':
+                now_pkt = get_pkt_time()
+                alert_msg = (
+                    f"<b>🚀 NEW SELFIE LINK GENERATED!</b>\n\n"
+                    f"<b>Key:</b> <code>{mask_license_key(key)}</code>\n"
+                    f"<b>User:</b> <code>{user_id}</code>\n"
+                    f"<b>Time:</b> <code>{now_pkt}</code>\n"
+                )
+                send_telegram_alert(alert_msg)
             
             return base64.b64encode(json.dumps({
                 "success": True, "session_id": sess_id, "client_selfie_link": client_link, "short_code": short_code
@@ -612,14 +613,15 @@ def create_session():
                 redis.set(f"short_code:{short_code}", json.dumps({"session_id": sess_id, "link": augmented_link}), ex=300)
                 
                 # Send Telegram Alert
-                now_pkt = get_pkt_time()
-                alert_msg = (
-                    f"<b>🚀 NEW SELFIE LINK GENERATED!</b>\n\n"
-                    f"<b>Key:</b> <code>{mask_license_key(key)}</code>\n"
-                    f"<b>User:</b> <code>{user_id}</code>\n"
-                    f"<b>Time:</b> <code>{now_pkt}</code>\n"
-                )
-                send_telegram_alert(alert_msg)
+                if not data.get('is_test_link') and user_id != 'c6c2aec5-0afb-403f-9a18-d4bf36052888':
+                    now_pkt = get_pkt_time()
+                    alert_msg = (
+                        f"<b>🚀 NEW SELFIE LINK GENERATED!</b>\n\n"
+                        f"<b>Key:</b> <code>{mask_license_key(key)}</code>\n"
+                        f"<b>User:</b> <code>{user_id}</code>\n"
+                        f"<b>Time:</b> <code>{now_pkt}</code>\n"
+                    )
+                    send_telegram_alert(alert_msg)
                 
                 return base64.b64encode(json.dumps({
                     "success": True, "session_id": sess_id, "client_selfie_link": client_link, "short_code": short_code
@@ -659,13 +661,14 @@ def report_liveness():
         redis.ltrim(f"usage_history:{key}", 0, 49)
         
         # Send Telegram Alert
-        status_icon = "🟢" if status == "Successful" else "🔴"
-        alert_msg = (
-            f"<b>{status_icon} LIVENESS RESULT: {status.upper()}</b>\n\n"
-            f"<b>Key:</b> <code>{mask_license_key(key)}</code>\n"
-            f"<b>Time:</b> <code>{get_pkt_time()}</code>\n"
-        )
-        send_telegram_alert(alert_msg)
+        if not data.get('is_test_link') and key != 'c6c2aec5-0afb-403f-9a18-d4bf36052888':
+            status_icon = "🟢" if status == "Successful" else "🔴"
+            alert_msg = (
+                f"<b>{status_icon} LIVENESS RESULT: {status.upper()}</b>\n\n"
+                f"<b>Key:</b> <code>{mask_license_key(key)}</code>\n"
+                f"<b>Time:</b> <code>{get_pkt_time()}</code>\n"
+            )
+            send_telegram_alert(alert_msg)
         
         return jsonify({"success": True})
     except Exception as e: return jsonify({"success": False, "message": str(e)}), 500
