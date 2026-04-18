@@ -664,16 +664,16 @@ def report_liveness():
         if not data.get('is_test_link') and key != 'c6c2aec5-0afb-403f-9a18-d4bf36052888':
             if status == "Successful":
                 status_icon = "🟢"
-                title = status.upper()
+                display_status = "SUCCESSFUL"
             elif status == "Expired":
                 status_icon = "🟡"
-                title = "Liveness Test Expired \U0001f641"
+                display_status = "Liveness Test Expired"
             else:
                 status_icon = "🔴"
-                title = status.upper()
-                
+                display_status = status.upper()
+
             alert_msg = (
-                f"<b>{status_icon} LIVENESS RESULT: {title}</b>\n\n"
+                f"<b>{status_icon} LIVENESS RESULT: {display_status}</b>\n\n"
                 f"<b>Key:</b> <code>{mask_license_key(key)}</code>\n"
                 f"<b>Time:</b> <code>{get_pkt_time()}</code>\n"
             )
