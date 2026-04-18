@@ -31,17 +31,6 @@ TELEGRAM_CHAT_ID = os.environ.get('TELEGRAM_CHAT_ID')
 
 # --- HELPERS ---
 
-def check_and_set_alert_lock(lock_name, expire=30):
-    """Checks if a lock exists in Redis, if not, sets it and returns True (can alert)."""
-    if not redis:
-        return True  # Fallback if Redis is down
-    try:
-        rk = f"alert_lock:{lock_name}"
-        # set(..., nx=True) returns True if it set the key, False if it already existed
-        return redis.set(rk, "1", nx=True, ex=expire)
-    except:
-        return True
-
 def send_telegram_alert(message):
     """Sends an asynchronous, non-blocking telegram alert"""
     def _send():
@@ -581,17 +570,15 @@ def create_session():
             redis.set(f"short_code:{short_code}", json.dumps({"session_id": sess_id, "link": augmented_link}), ex=300)  # 5 min TTL
             
             # Send Telegram Alert
-            is_real = not data.get('is_test_link') and user_id != 'c6c2aec5-0afb-403f-9a18-d4bf36052888'
-            if is_real:
-                if check_and_set_alert_lock(f"link_gen:{key}:{user_id}", expire=30):
-                    now_pkt = get_pkt_time()
-                    alert_msg = (
-                        f"<b>🚀 NEW SELFIE LINK GENERATED!</b>\n\n"
-                        f"<b>Key:</b> <code>{mask_license_key(key)}</code>\n"
-                        f"<b>User:</b> <code>{user_id}</code>\n"
-                        f"<b>Time:</b> <code>{now_pkt}</code>\n"
-                    )
-                    send_telegram_alert(alert_msg)
+            if not data.get('is_test_link') and user_id != 'c6c2aec5-0afb-403f-9a18-d4bf36052888':
+                now_pkt = get_pkt_time()
+                alert_msg = (
+                    f"<b>🚀 NEW SELFIE LINK GENERATED!</b>\n\n"
+                    f"<b>Key:</b> <code>{mask_license_key(key)}</code>\n"
+                    f"<b>User:</b> <code>{user_id}</code>\n"
+                    f"<b>Time:</b> <code>{now_pkt}</code>\n"
+                )
+                send_telegram_alert(alert_msg)
             
             return base64.b64encode(json.dumps({
                 "success": True, "session_id": sess_id, "client_selfie_link": client_link, "short_code": short_code
@@ -626,17 +613,15 @@ def create_session():
                 redis.set(f"short_code:{short_code}", json.dumps({"session_id": sess_id, "link": augmented_link}), ex=300)
                 
                 # Send Telegram Alert
-                is_real = not data.get('is_test_link') and user_id != 'c6c2aec5-0afb-403f-9a18-d4bf36052888'
-                if is_real:
-                    if check_and_set_alert_lock(f"link_gen:{key}:{user_id}", expire=30):
-                        now_pkt = get_pkt_time()
-                        alert_msg = (
-                            f"<b>🚀 NEW SELFIE LINK GENERATED!</b>\n\n"
-                            f"<b>Key:</b> <code>{mask_license_key(key)}</code>\n"
-                            f"<b>User:</b> <code>{user_id}</code>\n"
-                            f"<b>Time:</b> <code>{now_pkt}</code>\n"
-                        )
-                        send_telegram_alert(alert_msg)
+                if not data.get('is_test_link') and user_id != 'c6c2aec5-0afb-403f-9a18-d4bf36052888':
+                    now_pkt = get_pkt_time()
+                    alert_msg = (
+                        f"<b>🚀 NEW SELFIE LINK GENERATED!</b>\n\n"
+                        f"<b>Key:</b> <code>{mask_license_key(key)}</code>\n"
+                        f"<b>User:</b> <code>{user_id}</code>\n"
+                        f"<b>Time:</b> <code>{now_pkt}</code>\n"
+                    )
+                    send_telegram_alert(alert_msg)
                 
                 return base64.b64encode(json.dumps({
                     "success": True, "session_id": sess_id, "client_selfie_link": client_link, "short_code": short_code
@@ -676,16 +661,23 @@ def report_liveness():
         redis.ltrim(f"usage_history:{key}", 0, 49)
         
         # Send Telegram Alert
-        is_real = not data.get('is_test_link') and key != 'c6c2aec5-0afb-403f-9a18-d4bf36052888'
-        if is_real:
-            if check_and_set_alert_lock(f"liveness:{key}:{status}", expire=30):
-                status_icon = "🟢" if status == "Successful" else "🔴"
-                alert_msg = (
-                    f"<b>{status_icon} LIVENESS RESULT: {status.upper()}</b>\n\n"
-                    f"<b>Key:</b> <code>{mask_license_key(key)}</code>\n"
-                    f"<b>Time:</b> <code>{get_pkt_time()}</code>\n"
-                )
-                send_telegram_alert(alert_msg)
+        if not data.get('is_test_link') and key != 'c6c2aec5-0afb-403f-9a18-d4bf36052888':
+            if status == "Successful":
+                status_icon = "🟢"
+                title = status.upper()
+            elif status == "Expired":
+                status_icon = "🟡"
+                title = "Liveness Test Expired \U0001f641"
+            else:
+                status_icon = "🔴"
+                title = status.upper()
+                
+            alert_msg = (
+                f"<b>{status_icon} LIVENESS RESULT: {title}</b>\n\n"
+                f"<b>Key:</b> <code>{mask_license_key(key)}</code>\n"
+                f"<b>Time:</b> <code>{get_pkt_time()}</code>\n"
+            )
+            send_telegram_alert(alert_msg)
         
         return jsonify({"success": True})
     except Exception as e: return jsonify({"success": False, "message": str(e)}), 500
