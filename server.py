@@ -679,9 +679,18 @@ def report_liveness():
         is_real = not data.get('is_test_link') and key != 'c6c2aec5-0afb-403f-9a18-d4bf36052888'
         if is_real:
             if check_and_set_alert_lock(f"liveness:{key}:{status}", expire=30):
-                status_icon = "🟢" if status == "Successful" else "🔴"
+                if status == "Successful":
+                    status_icon = "🟢"
+                    title = "SUCCESSFUL"
+                elif status == "Expired":
+                    status_icon = "🟡"
+                    title = "Liveness Test Expired"
+                else:
+                    status_icon = "🔴"
+                    title = status.upper()
+                
                 alert_msg = (
-                    f"<b>{status_icon} LIVENESS RESULT: {status.upper()}</b>\n\n"
+                    f"<b>{status_icon} LIVENESS RESULT: {title}</b>\n\n"
                     f"<b>Key:</b> <code>{mask_license_key(key)}</code>\n"
                     f"<b>Time:</b> <code>{get_pkt_time()}</code>\n"
                 )
