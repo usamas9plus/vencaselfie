@@ -525,7 +525,11 @@ def create_session():
             previous_key = redis.get(f"test_key_device_map:{incoming_hash}")
             if previous_key and previous_key != key:
                 return jsonify({"success": False, "message": "This device has already used a test key. Please purchase a regular license."}), 403
-        
+        selfie_data = data.get('selfie_data', {})
+        proxy = selfie_data.get('proxy_host_for_client_xff')
+        if not proxy or proxy == 'unknown_ip' or not isinstance(proxy, str) or proxy.strip() == '':
+            proxy = request.remote_addr or '127.0.0.1'
+
         lock_key = f"active_session_lock:{key}"
         server_url = data.get('server_url', request.host_url.rstrip('/'))
         sess_id = f"sess_{uuid.uuid4().hex[:16]}"
@@ -533,11 +537,11 @@ def create_session():
         sess_data = {
             "session_id": sess_id, "license_key": key, "fingerprint_hash": incoming_hash,
             "status": "CREATED", "created_at": time.time(), "server_url": server_url,
-            "user_id": data.get('selfie_data', {}).get('scraped_user_id'),
-            "transaction_id": data.get('selfie_data', {}).get('scraped_transaction_id'),
-            "proxy": data.get('selfie_data', {}).get('proxy_host_for_client_xff'),
-            "target_domain": data.get('selfie_data', {}).get('target_domain'),
-            "target_path": data.get('selfie_data', {}).get('target_path'),
+            "user_id": selfie_data.get('scraped_user_id'),
+            "transaction_id": selfie_data.get('scraped_transaction_id'),
+            "proxy": proxy,
+            "target_domain": selfie_data.get('target_domain'),
+            "target_path": selfie_data.get('target_path'),
         }
 
         # Generate unique 4-digit short code
@@ -564,10 +568,8 @@ def create_session():
             client_link = f"{server_url}/selfie/?session={sess_id}"
             
             # Construct augmented link with encoded data for short code
-            selfie_data = data.get('selfie_data', {})
             user_id = selfie_data.get('scraped_user_id', '')
             transaction_id = selfie_data.get('scraped_transaction_id', '')
-            proxy = selfie_data.get('proxy_host_for_client_xff', 'unknown_ip')
             target_domain = selfie_data.get('target_domain', 'appointment.thespainvisa.com')
             target_path = selfie_data.get('target_path', '/Global/')
             
@@ -594,7 +596,7 @@ def create_session():
                     send_telegram_alert(alert_msg)
             
             return base64.b64encode(json.dumps({
-                "success": True, "session_id": sess_id, "client_selfie_link": client_link, "short_code": short_code
+                "success": True, "session_id": sess_id, "client_selfie_link": client_link, "short_code": short_code, "resolved_proxy": proxy
             }).encode('utf-8')).decode('utf-8')
 
         locked_id = redis.get(lock_key)
@@ -609,10 +611,8 @@ def create_session():
                 client_link = f"{server_url}/selfie/?session={sess_id}"
                 
                 # Construct augmented link with encoded data for short code
-                selfie_data = data.get('selfie_data', {})
                 user_id = selfie_data.get('scraped_user_id', '')
                 transaction_id = selfie_data.get('scraped_transaction_id', '')
-                proxy = selfie_data.get('proxy_host_for_client_xff', 'unknown_ip')
                 target_domain = selfie_data.get('target_domain', 'appointment.thespainvisa.com')
                 target_path = selfie_data.get('target_path', '/Global/')
                 
@@ -639,7 +639,7 @@ def create_session():
                         send_telegram_alert(alert_msg)
                 
                 return base64.b64encode(json.dumps({
-                    "success": True, "session_id": sess_id, "client_selfie_link": client_link, "short_code": short_code
+                    "success": True, "session_id": sess_id, "client_selfie_link": client_link, "short_code": short_code, "resolved_proxy": proxy
                 }).encode('utf-8')).decode('utf-8')
 
         return jsonify({"success": False, "message": "Link already generated on Another Device please wait for it to complete or Click on RESET SELFIE SESSION DATA"}), 409
