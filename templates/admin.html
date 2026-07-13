@@ -955,6 +955,11 @@
                         <button class="action-btn copy" onclick="copyKey('${lic.key}')">📋</button>
                         <button class="action-btn edit" onclick="editExpiry('${lic.key}', '${lic.expiry}')">✏️</button>
                         <button class="action-btn hist" onclick="viewHistory('${lic.key}')">📊</button>
+                        <button class="action-btn" onclick="toggleAlerts('${lic.key}')" 
+                                style="background: ${lic.disable_alerts ? '#331111' : '#113311'}; border-color: ${lic.disable_alerts ? 'var(--red)' : 'var(--green)'}; color: ${lic.disable_alerts ? 'var(--red)' : 'var(--green)'}; padding: 6px 12px; font-size: 0.7em; margin-right: 5px;"
+                                title="${lic.disable_alerts ? 'Enable Telegram Alerts' : 'Mute Telegram Alerts'}">
+                            ${lic.disable_alerts ? '🔕' : '🔔'}
+                        </button>
                         ${lic.key_category === 'test' && lic.device_count > 0 ? `<button class="action-btn reset" onclick="clearTestDevice('${lic.key}')" title="Clear device restriction">🔓</button>` : ''}
                         ${lic.locked ? `<button class="action-btn reset" onclick="resetLock('${lic.key}')">💀</button>` : ''}
                         <button class="action-btn delete" onclick="deleteKey('${lic.key}')">🗑️</button>
@@ -1092,6 +1097,10 @@
                     list.innerHTML = '<p style="text-align:center; color:#666">No history found</p>';
                 }
             } catch (e) { list.innerHTML = 'Error loading history.'; }
+        }
+
+        async function toggleAlerts(key) {
+            apiCall('/api/admin/toggle_alerts', { license_key: key }, "🔔 Alerts setting updated!");
         }
 
         async function apiCall(endpoint, payload, successMsg) {
