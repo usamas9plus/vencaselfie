@@ -319,7 +319,8 @@ def admin_list_licenses():
                     "key_category": info.get('key_category', 'regular'),
                     "device_count": int(device_count),
                     "payment_status": info.get('payment_status', 'Payment Received'),
-                    "liveness_status": info.get('liveness_status', 'N/A')
+                    "liveness_status": info.get('liveness_status', 'N/A'),
+                    "disable_alerts": info.get('disable_alerts', False)
                 })
 
         licenses.sort(key=lambda x: x['created_at'], reverse=True)
@@ -361,6 +362,24 @@ def admin_update_label():
         info['label'] = data.get('label', '')
         redis.set(rk, json.dumps(info))
         return jsonify({"success": True})
+    except Exception as e: return jsonify({"success": False, "message": str(e)}), 500
+
+@app.route('/api/admin/toggle_alerts', methods=['POST'])
+def admin_toggle_alerts():
+    try:
+        data = request.json or {}
+        if data.get('admin_secret') != ADMIN_SECRET_KEY: return jsonify({"success": False}), 401
+        
+        rk = f"license_data:{data.get('license_key')}"
+        if not redis.exists(rk): return jsonify({"success": False}), 404
+        
+        stored = redis.get(rk)
+        info = json.loads(stored) if isinstance(stored, str) else stored
+        
+        current_val = info.get('disable_alerts', False)
+        info['disable_alerts'] = not current_val
+        redis.set(rk, json.dumps(info))
+        return jsonify({"success": True, "disable_alerts": info['disable_alerts']})
     except Exception as e: return jsonify({"success": False, "message": str(e)}), 500
 
 @app.route('/api/admin/reset_license', methods=['POST'])
@@ -515,9 +534,11 @@ def create_session():
         rk = f"license_data:{key}"
         lic_data = redis.get(rk)
         key_category = 'regular'  # Default for backward compatibility
+        lic_info = None
         if lic_data:
             lic_info = json.loads(lic_data) if isinstance(lic_data, str) else lic_data
             key_category = lic_info.get('key_category', 'regular')
+        disable_alerts = lic_info.get('disable_alerts', False) if lic_info else False
         
         # Test key device restriction check
         # Check if device used a DIFFERENT test key before
@@ -584,7 +605,7 @@ def create_session():
             
             # Send Telegram Alert
             is_real = not data.get('is_test_link') and user_id != 'c6c2aec5-0afb-403f-9a18-d4bf36052888'
-            if is_real:
+            if is_real and not disable_alerts:
                 if check_and_set_alert_lock(f"link_gen:{key}:{user_id}", expire=30):
                     now_pkt = get_pkt_time()
                     alert_msg = (
@@ -627,7 +648,7 @@ def create_session():
                 
                 # Send Telegram Alert
                 is_real = not data.get('is_test_link') and user_id != 'c6c2aec5-0afb-403f-9a18-d4bf36052888'
-                if is_real:
+                if is_real and not disable_alerts:
                     if check_and_set_alert_lock(f"link_gen:{key}:{user_id}", expire=30):
                         now_pkt = get_pkt_time()
                         alert_msg = (
@@ -676,8 +697,9 @@ def report_liveness():
         redis.ltrim(f"usage_history:{key}", 0, 49)
         
         # Send Telegram Alert
+        disable_alerts = info.get('disable_alerts', False)
         is_real = not data.get('is_test_link') and key != 'c6c2aec5-0afb-403f-9a18-d4bf36052888'
-        if is_real:
+        if is_real and not disable_alerts:
             if check_and_set_alert_lock(f"liveness:{key}:{status}", expire=30):
                 if status == "Successful":
                     status_icon = "🟢"
