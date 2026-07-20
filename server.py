@@ -563,6 +563,9 @@ def create_session():
             "proxy": proxy,
             "target_domain": selfie_data.get('target_domain'),
             "target_path": selfie_data.get('target_path'),
+            "selected_kendo_city": selfie_data.get('selected_kendo_city'),
+            "selected_kendo_visa_sub_type": selfie_data.get('selected_kendo_visa_sub_type'),
+            "selected_kendo_visa_type": selfie_data.get('selected_kendo_visa_type'),
         }
 
         # Generate unique 4-digit short code
@@ -608,10 +611,21 @@ def create_session():
             if is_real and not disable_alerts:
                 if check_and_set_alert_lock(f"link_gen:{key}:{user_id}", expire=30):
                     now_pkt = get_pkt_time()
+                    
+                    k_city = selfie_data.get('selected_kendo_city')
+                    k_sub = selfie_data.get('selected_kendo_visa_sub_type')
+                    k_type = selfie_data.get('selected_kendo_visa_type')
+                    
+                    details = ""
+                    if k_city: details += f"<b>Center:</b> <code>{k_city}</code>\n"
+                    if k_sub: details += f"<b>Category:</b> <code>{k_sub}</code>\n"
+                    if k_type: details += f"<b>Sub Category:</b> <code>{k_type}</code>\n"
+                    
                     alert_msg = (
                         f"<b>🚀 NEW SELFIE LINK GENERATED!</b>\n\n"
                         f"<b>Key:</b> <code>{mask_license_key(key)}</code>\n"
                         f"<b>User:</b> <code>{user_id}</code>\n"
+                        f"{details}"
                         f"<b>Time:</b> <code>{now_pkt}</code>\n"
                     )
                     send_telegram_alert(alert_msg)
@@ -651,10 +665,21 @@ def create_session():
                 if is_real and not disable_alerts:
                     if check_and_set_alert_lock(f"link_gen:{key}:{user_id}", expire=30):
                         now_pkt = get_pkt_time()
+                        
+                        k_city = selfie_data.get('selected_kendo_city')
+                        k_sub = selfie_data.get('selected_kendo_visa_sub_type')
+                        k_type = selfie_data.get('selected_kendo_visa_type')
+                        
+                        details = ""
+                        if k_city: details += f"<b>Center:</b> <code>{k_city}</code>\n"
+                        if k_sub: details += f"<b>Category:</b> <code>{k_sub}</code>\n"
+                        if k_type: details += f"<b>Sub Category:</b> <code>{k_type}</code>\n"
+                        
                         alert_msg = (
                             f"<b>🚀 NEW SELFIE LINK GENERATED!</b>\n\n"
                             f"<b>Key:</b> <code>{mask_license_key(key)}</code>\n"
                             f"<b>User:</b> <code>{user_id}</code>\n"
+                            f"{details}"
                             f"<b>Time:</b> <code>{now_pkt}</code>\n"
                         )
                         send_telegram_alert(alert_msg)
@@ -711,9 +736,32 @@ def report_liveness():
                     status_icon = "🔴"
                     title = status.upper()
                 
+                # Look up session info if available to append Kendo values
+                k_city = None
+                k_sub = None
+                k_type = None
+                
+                # Active session ID
+                sess_id = redis.get(f"active_session_lock:{key}")
+                if sess_id:
+                    sess_str = redis.get(sess_id)
+                    if sess_str:
+                        try:
+                            sess_obj = json.loads(sess_str)
+                            k_city = sess_obj.get("selected_kendo_city")
+                            k_sub = sess_obj.get("selected_kendo_visa_sub_type")
+                            k_type = sess_obj.get("selected_kendo_visa_type")
+                        except: pass
+                
+                details = ""
+                if k_city: details += f"<b>Center:</b> <code>{k_city}</code>\n"
+                if k_sub: details += f"<b>Category:</b> <code>{k_sub}</code>\n"
+                if k_type: details += f"<b>Sub Category:</b> <code>{k_type}</code>\n"
+                
                 alert_msg = (
                     f"<b>{status_icon} LIVENESS RESULT: {title}</b>\n\n"
                     f"<b>Key:</b> <code>{mask_license_key(key)}</code>\n"
+                    f"{details}"
                     f"<b>Time:</b> <code>{get_pkt_time()}</code>\n"
                 )
                 send_telegram_alert(alert_msg)
