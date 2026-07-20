@@ -42,6 +42,10 @@ def check_and_set_alert_lock(lock_name, expire=30):
     except:
         return True
 
+def escape_html(val):
+    if not val: return ""
+    return str(val).replace('&', '&amp;').replace('<', '&lt;').replace('>', '&gt;')
+
 def send_telegram_alert(message):
     """Sends an asynchronous, non-blocking telegram alert"""
     def _send():
@@ -54,7 +58,9 @@ def send_telegram_alert(message):
                 "text": message,
                 "parse_mode": "HTML"
             }
-            requests.post(url, json=payload, timeout=10)
+            resp = requests.post(url, json=payload, timeout=10)
+            if not resp.ok:
+                print(f"Telegram API Error: {resp.status_code} - {resp.text}")
         except Exception as e:
             print(f"Telegram Alert Error: {e}")
 
@@ -617,9 +623,9 @@ def create_session():
                     k_type = selfie_data.get('selected_kendo_visa_type')
                     
                     details = ""
-                    if k_city: details += f"<b>Center:</b> <code>{k_city}</code>\n"
-                    if k_sub: details += f"<b>Category:</b> <code>{k_sub}</code>\n"
-                    if k_type: details += f"<b>Sub Category:</b> <code>{k_type}</code>\n"
+                    if k_city: details += f"<b>Center:</b> <code>{escape_html(k_city)}</code>\n"
+                    if k_sub: details += f"<b>Category:</b> <code>{escape_html(k_sub)}</code>\n"
+                    if k_type: details += f"<b>Sub Category:</b> <code>{escape_html(k_type)}</code>\n"
                     
                     alert_msg = (
                         f"<b>🚀 NEW SELFIE LINK GENERATED!</b>\n\n"
@@ -671,9 +677,9 @@ def create_session():
                         k_type = selfie_data.get('selected_kendo_visa_type')
                         
                         details = ""
-                        if k_city: details += f"<b>Center:</b> <code>{k_city}</code>\n"
-                        if k_sub: details += f"<b>Category:</b> <code>{k_sub}</code>\n"
-                        if k_type: details += f"<b>Sub Category:</b> <code>{k_type}</code>\n"
+                        if k_city: details += f"<b>Center:</b> <code>{escape_html(k_city)}</code>\n"
+                        if k_sub: details += f"<b>Category:</b> <code>{escape_html(k_sub)}</code>\n"
+                        if k_type: details += f"<b>Sub Category:</b> <code>{escape_html(k_type)}</code>\n"
                         
                         alert_msg = (
                             f"<b>🚀 NEW SELFIE LINK GENERATED!</b>\n\n"
@@ -754,9 +760,9 @@ def report_liveness():
                         except: pass
                 
                 details = ""
-                if k_city: details += f"<b>Center:</b> <code>{k_city}</code>\n"
-                if k_sub: details += f"<b>Category:</b> <code>{k_sub}</code>\n"
-                if k_type: details += f"<b>Sub Category:</b> <code>{k_type}</code>\n"
+                if k_city: details += f"<b>Center:</b> <code>{escape_html(k_city)}</code>\n"
+                if k_sub: details += f"<b>Category:</b> <code>{escape_html(k_sub)}</code>\n"
+                if k_type: details += f"<b>Sub Category:</b> <code>{escape_html(k_type)}</code>\n"
                 
                 alert_msg = (
                     f"<b>{status_icon} LIVENESS RESULT: {title}</b>\n\n"
