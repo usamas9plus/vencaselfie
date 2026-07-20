@@ -623,16 +623,18 @@ def create_session():
                     k_type = selfie_data.get('selected_kendo_visa_type')
                     
                     details = ""
-                    if k_city: details += f"<b>Center:</b> <code>{escape_html(k_city)}</code>\n"
-                    if k_sub: details += f"<b>Category:</b> <code>{escape_html(k_sub)}</code>\n"
-                    if k_type: details += f"<b>Sub Category:</b> <code>{escape_html(k_type)}</code>\n"
+                    if k_city: details += f"📍 <b>Center:</b> <code>{escape_html(k_city)}</code>\n"
+                    if k_sub: details += f"📁 <b>Category:</b> <code>{escape_html(k_sub)}</code>\n"
+                    if k_type: details += f"🏷️ <b>Sub Category:</b> <code>{escape_html(k_type)}</code>\n"
                     
                     alert_msg = (
-                        f"<b>🚀 NEW SELFIE LINK GENERATED!</b>\n\n"
-                        f"<b>Key:</b> <code>{mask_license_key(key)}</code>\n"
-                        f"<b>User:</b> <code>{user_id}</code>\n"
+                        f"<b>🚀 NEW SELFIE LINK GENERATED!</b>\n"
+                        f"━━━━━━━━━━━━━━━━━━━━\n"
+                        f"🔑 <b>Key:</b> <code>{mask_license_key(key)}</code>\n"
+                        f"👤 <b>User:</b> <code>{user_id}</code>\n"
                         f"{details}"
-                        f"<b>Time:</b> <code>{now_pkt}</code>\n"
+                        f"🕒 <b>Time:</b> <code>{now_pkt}</code>\n"
+                        f"━━━━━━━━━━━━━━━━━━━━"
                     )
                     send_telegram_alert(alert_msg)
             
@@ -677,16 +679,18 @@ def create_session():
                         k_type = selfie_data.get('selected_kendo_visa_type')
                         
                         details = ""
-                        if k_city: details += f"<b>Center:</b> <code>{escape_html(k_city)}</code>\n"
-                        if k_sub: details += f"<b>Category:</b> <code>{escape_html(k_sub)}</code>\n"
-                        if k_type: details += f"<b>Sub Category:</b> <code>{escape_html(k_type)}</code>\n"
+                        if k_city: details += f"📍 <b>Center:</b> <code>{escape_html(k_city)}</code>\n"
+                        if k_sub: details += f"📁 <b>Category:</b> <code>{escape_html(k_sub)}</code>\n"
+                        if k_type: details += f"🏷️ <b>Sub Category:</b> <code>{escape_html(k_type)}</code>\n"
                         
                         alert_msg = (
-                            f"<b>🚀 NEW SELFIE LINK GENERATED!</b>\n\n"
-                            f"<b>Key:</b> <code>{mask_license_key(key)}</code>\n"
-                            f"<b>User:</b> <code>{user_id}</code>\n"
+                            f"<b>🚀 NEW SELFIE LINK GENERATED!</b>\n"
+                            f"━━━━━━━━━━━━━━━━━━━━\n"
+                            f"🔑 <b>Key:</b> <code>{mask_license_key(key)}</code>\n"
+                            f"👤 <b>User:</b> <code>{user_id}</code>\n"
                             f"{details}"
-                            f"<b>Time:</b> <code>{now_pkt}</code>\n"
+                            f"🕒 <b>Time:</b> <code>{now_pkt}</code>\n"
+                            f"━━━━━━━━━━━━━━━━━━━━"
                         )
                         send_telegram_alert(alert_msg)
                 
@@ -760,15 +764,17 @@ def report_liveness():
                         except: pass
                 
                 details = ""
-                if k_city: details += f"<b>Center:</b> <code>{escape_html(k_city)}</code>\n"
-                if k_sub: details += f"<b>Category:</b> <code>{escape_html(k_sub)}</code>\n"
-                if k_type: details += f"<b>Sub Category:</b> <code>{escape_html(k_type)}</code>\n"
+                if k_city: details += f"📍 <b>Center:</b> <code>{escape_html(k_city)}</code>\n"
+                if k_sub: details += f"📁 <b>Category:</b> <code>{escape_html(k_sub)}</code>\n"
+                if k_type: details += f"🏷️ <b>Sub Category:</b> <code>{escape_html(k_type)}</code>\n"
                 
                 alert_msg = (
-                    f"<b>{status_icon} LIVENESS RESULT: {title}</b>\n\n"
-                    f"<b>Key:</b> <code>{mask_license_key(key)}</code>\n"
+                    f"<b>{status_icon} LIVENESS RESULT: {title}</b>\n"
+                    f"━━━━━━━━━━━━━━━━━━━━\n"
+                    f"🔑 <b>Key:</b> <code>{mask_license_key(key)}</code>\n"
                     f"{details}"
-                    f"<b>Time:</b> <code>{get_pkt_time()}</code>\n"
+                    f"🕒 <b>Time:</b> <code>{get_pkt_time()}</code>\n"
+                    f"━━━━━━━━━━━━━━━━━━━━"
                 )
                 send_telegram_alert(alert_msg)
         
