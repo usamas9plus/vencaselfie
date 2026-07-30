@@ -659,6 +659,7 @@ def create_session():
             # Free retry & Credit Deduction logic
             user_id = selfie_data.get('scraped_user_id', '')
             transaction_id = selfie_data.get('scraped_transaction_id', '')
+            is_test_link = data.get('is_test_link', False) or (user_id == 'c6c2aec5-0afb-403f-9a18-d4bf36052888')
             
             last_app_key = f"last_applicant:{key}"
             current_app_val = f"{user_id}:{transaction_id}" if (user_id and transaction_id) else None
@@ -671,8 +672,8 @@ def create_session():
             if current_app_val and not is_same_applicant:
                 redis.set(last_app_key, current_app_val, ex=1800)  # 30 min window for same applicant
                 
-            # Deduct 1 credit if credit key and NOT same applicant
-            if lic_info and lic_info.get('type') == 'credit' and not is_same_applicant:
+            # Deduct 1 credit if credit key, NOT same applicant, and NOT a test link
+            if lic_info and lic_info.get('type') == 'credit' and not is_same_applicant and not is_test_link:
                 rem = lic_info.get('credits_remaining', 1)
                 lic_info['credits_remaining'] = max(0, rem - 1)
                 redis.set(rk, json.dumps(lic_info))
@@ -722,8 +723,9 @@ def create_session():
                     )
                     send_telegram_alert(alert_msg)
             
+            creds_left = lic_info.get('credits_remaining') if lic_info else None
             return base64.b64encode(json.dumps({
-                "success": True, "session_id": sess_id, "client_selfie_link": client_link, "short_code": short_code, "resolved_proxy": proxy
+                "success": True, "session_id": sess_id, "client_selfie_link": client_link, "short_code": short_code, "resolved_proxy": proxy, "credits_remaining": creds_left
             }).encode('utf-8')).decode('utf-8')
 
         locked_id = redis.get(lock_key)
@@ -778,8 +780,9 @@ def create_session():
                         )
                         send_telegram_alert(alert_msg)
                 
+                creds_left = lic_info.get('credits_remaining') if lic_info else None
                 return base64.b64encode(json.dumps({
-                    "success": True, "session_id": sess_id, "client_selfie_link": client_link, "short_code": short_code, "resolved_proxy": proxy
+                    "success": True, "session_id": sess_id, "client_selfie_link": client_link, "short_code": short_code, "resolved_proxy": proxy, "credits_remaining": creds_left
                 }).encode('utf-8')).decode('utf-8')
 
         return jsonify({"success": False, "message": "Link already generated on Another Device please wait for it to complete or Click on RESET SELFIE SESSION DATA"}), 409
