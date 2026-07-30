@@ -579,6 +579,21 @@
         </div>
     </div>
 
+    <div id="creditsModal" class="modal">
+        <div class="modal-content">
+            <h2>⚡ Update Credits</h2>
+            <p style="color: #ccc; margin-bottom: 20px;">Set remaining credits for <span id="creditsModalKey" style="color: var(--green); font-family: 'Orbitron'; font-weight: bold;"></span></p>
+            
+            <div style="display: flex; flex-direction: column; gap: 15px;">
+                <input type="number" id="newCreditsInput" placeholder="Remaining Credits" min="0" style="width:100%; text-align:center; font-size:1.2em; padding:10px;">
+                <button onclick="submitCreditsUpdate()" style="background: linear-gradient(180deg, #005500 0%, #003300 100%); border-color: var(--green);">💾 Save Balance</button>
+            </div>
+
+            <button onclick="document.getElementById('creditsModal').style.display='none'"
+                style="margin-top:20px; width:100%; background: #222; border-color: #444;">Cancel</button>
+        </div>
+    </div>
+
     <div class="container">
         <div class="header">
             <h1>🔴 Vecna Command Center</h1>
@@ -651,15 +666,16 @@
                     </div>
                 </div>
                 <div class="form-group">
-                    <label>Key Type & Duration</label>
-                    <div class="radio-group">
-                        <label><input type="radio" name="keyType" value="fixed" checked onclick="toggleKeyType()"> Fixed
-                            Date</label>
-                        <label style="color:var(--orange)"><input type="radio" name="keyType" value="floating"
-                                onclick="toggleKeyType()"> Activate on Use</label>
+                    <label>Plan & Credit Pack</label>
+                    <div class="radio-group" style="flex-wrap: wrap; gap: 10px;">
+                        <label style="color:#cd7f32"><input type="radio" name="keyType" value="credit_bronze" checked onclick="toggleKeyType()"> 🥉 Bronze (10 Cr)</label>
+                        <label style="color:#ffd700"><input type="radio" name="keyType" value="credit_gold" onclick="toggleKeyType()"> 🥇 Gold (25 Cr)</label>
+                        <label style="color:#b9f2ff"><input type="radio" name="keyType" value="credit_diamond" onclick="toggleKeyType()"> 💎 Diamond (60 Cr)</label>
+                        <label style="color:var(--green)"><input type="radio" name="keyType" value="fixed" onclick="toggleKeyType()"> 👑 Unlimited VIP</label>
+                        <label style="color:var(--orange)"><input type="radio" name="keyType" value="floating" onclick="toggleKeyType()"> 🌊 Floating</label>
                     </div>
-                    <div id="fixedDateInput" style="margin-top:10px">
-                        <input type="date" id="expiryDate" style="width:100%">
+                    <div id="fixedDateInput" style="display:none; margin-top:10px">
+                        <input type="date" id="expiryDate" style="width:100%" placeholder="Expiry Date">
                     </div>
                     <div id="floatingInput" style="display:none; margin-top:10px">
                         <input type="number" id="durationDays" placeholder="Duration (Days)" style="width:100%">
@@ -695,8 +711,8 @@
                         <th class="sortable" onclick="sortTable('label')" id="th-label">Label</th>
                         <th class="sortable" onclick="sortTable('payment_status')" id="th-payment_status">Payment</th>
                         <th class="sortable" onclick="sortTable('expiry')" id="th-expiry">Expiry</th>
-                        <th class="sortable" onclick="sortTable('last_activity')" id="th-last_activity">Last Activity
-                        </th>
+                        <th class="sortable" onclick="sortTable('credits_remaining')" id="th-credits_remaining">Credits</th>
+                        <th class="sortable" onclick="sortTable('last_activity')" id="th-last_activity">Last Activity</th>
                         <th class="sortable" onclick="sortTable('usage')" id="th-usage">Uses</th>
                         <th class="sortable" onclick="sortTable('device_count')" id="th-device_count">Devices</th>
                         <th class="sortable" onclick="sortTable('liveness_status')" id="th-liveness_status">Liveness</th>
@@ -842,10 +858,21 @@
             const keyCategory = document.querySelector('input[name="keyCategory"]:checked').value;
             let payload = { admin_secret: secret, custom_key: null, key_category: keyCategory };
 
-            if (type === 'fixed') {
+            if (type.startsWith('credit_')) {
+                payload.is_credit = true;
+                if (type === 'credit_bronze') {
+                    payload.credits_amount = 10;
+                    payload.plan_name = "Bronze Pack";
+                } else if (type === 'credit_gold') {
+                    payload.credits_amount = 25;
+                    payload.plan_name = "Gold Pack";
+                } else if (type === 'credit_diamond') {
+                    payload.credits_amount = 60;
+                    payload.plan_name = "Diamond Pack";
+                }
+            } else if (type === 'fixed') {
                 const dateVal = getEl('expiryDate').value;
-                if (!dateVal) return alert("Please select an expiry date.");
-                payload.expiry = dateVal;
+                payload.expiry = dateVal || null;
                 payload.is_floating = false;
             } else {
                 const daysVal = getEl('durationDays').value;
@@ -926,9 +953,33 @@
             sortedData.forEach(lic => {
                 const row = document.createElement('tr');
                 const labelDisplay = lic.label ? `<span style="color:#d4a03a">${lic.label}</span>` : '<span style="color:#555">—</span>';
-                const categoryBadge = lic.key_category === 'test'
+                
+                let categoryBadge = lic.key_category === 'test'
                     ? '<span class="badge" style="background:rgba(255,136,0,0.2);color:var(--orange);border:1px solid var(--orange)">TEST</span>'
                     : '<span class="badge" style="background:rgba(0,255,0,0.1);color:var(--green);border:1px solid var(--green)">REGULAR</span>';
+                
+                if (lic.type === 'credit') {
+                    if (lic.credits_total === 10) {
+                        categoryBadge += ' <span class="badge" style="background:rgba(205,127,50,0.2);color:#cd7f32;border:1px solid #cd7f32">🥉 BRONZE</span>';
+                    } else if (lic.credits_total === 25) {
+                        categoryBadge += ' <span class="badge" style="background:rgba(255,215,0,0.2);color:#ffd700;border:1px solid #ffd700">🥇 GOLD</span>';
+                    } else if (lic.credits_total === 60) {
+                        categoryBadge += ' <span class="badge" style="background:rgba(185,242,255,0.2);color:#b9f2ff;border:1px solid #b9f2ff">💎 DIAMOND</span>';
+                    } else {
+                        categoryBadge += ` <span class="badge" style="background:rgba(185,242,255,0.2);color:#b9f2ff;border:1px solid #b9f2ff">⚡ ${lic.plan_name || 'CREDIT'}</span>`;
+                    }
+                } else if (lic.type === 'fixed') {
+                    categoryBadge += ' <span class="badge" style="background:rgba(0,255,0,0.1);color:var(--green);border:1px solid var(--green)">👑 VIP</span>';
+                }
+
+                let creditsDisplay = '<span style="color:#666">—</span>';
+                if (lic.type === 'credit') {
+                    const rem = lic.credits_remaining !== null && lic.credits_remaining !== undefined ? lic.credits_remaining : 0;
+                    const tot = lic.credits_total || 0;
+                    const color = rem > 0 ? 'var(--green)' : 'var(--red)';
+                    creditsDisplay = `<span style="color:${color}; font-weight:bold; font-family:'Orbitron';">⚡ ${rem}/${tot}</span> <button class="action-btn edit" onclick="editCredits('${lic.key}', ${rem})" style="padding:2px 6px; font-size:0.65em">✏️</button>`;
+                }
+
                 const paymentBadge = lic.key_category === 'test' ? '<span class="badge" style="background:rgba(128,128,128,0.2);color:#888;border:1px solid #888">N/A</span>'
                     : (lic.payment_status === 'Payment Pending' ? '<span class="badge" style="background:rgba(255,165,0,0.2);color:orange;border:1px solid orange">PENDING</span>'
                         : (lic.payment_status === 'Payment Suspended' ? '<span class="badge" style="background:rgba(255,0,0,0.2);color:var(--red);border:1px solid var(--red)">SUSPENDED</span>'
@@ -946,6 +997,7 @@
                     <td>${labelDisplay} <button class="action-btn edit" onclick="editLabel('${lic.key}', '${lic.label || ''}')" style="padding:2px 6px; font-size:0.65em">🏷️</button></td>
                     <td>${paymentBadge} <button class="action-btn edit" onclick="editPaymentStatus('${lic.key}', '${lic.payment_status || 'Payment Received'}')" style="padding:2px 6px; font-size:0.65em">✏️</button></td>
                     <td>${lic.expiry}</td>
+                    <td>${creditsDisplay}</td>
                     <td>${formatActivity(lic.last_activity)}</td>
                     <td>${lic.usage}</td>
                     <td>${lic.device_count || 0}</td>
@@ -1044,6 +1096,24 @@
             else if (status === 'Payment Suspended') message = '🛑 Status updated to Suspended';
             
             apiCall('/api/admin/update_payment_status', { license_key: currentEditingPaymentKey, payment_status: status }, message);
+        }
+
+        let currentEditingCreditsKey = null;
+
+        function editCredits(key, currentCredits) {
+            currentEditingCreditsKey = key;
+            getEl('creditsModalKey').textContent = key;
+            getEl('newCreditsInput').value = currentCredits || 0;
+            getEl('creditsModal').style.display = 'flex';
+        }
+
+        async function submitCreditsUpdate() {
+            if (!currentEditingCreditsKey) return;
+            const val = parseInt(getEl('newCreditsInput').value);
+            if (isNaN(val) || val < 0) return alert("Please enter a valid credit number.");
+            
+            getEl('creditsModal').style.display = 'none';
+            apiCall('/api/admin/update_credits', { license_key: currentEditingCreditsKey, credits_remaining: val }, `⚡ Credits updated to ${val}`);
         }
 
         async function resetLock(key) {

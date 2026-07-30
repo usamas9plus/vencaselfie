@@ -122,6 +122,10 @@ def _validate_license_logic(license_key):
 
                 if info.get('type') == 'floating' and info.get('status') == 'unused':
                     return True, "Ready to activate", None
+                if info.get('type') == 'credit':
+                    rem = info.get('credits_remaining', 0)
+                    if rem <= 0:
+                        return False, "You have 0 credits remaining. Please top up your account or switch to Unlimited VIP.", None
                 expiry_str = info.get("expiry")
                 if expiry_str:
                     try:
@@ -212,6 +216,7 @@ def admin_generate_license():
         
         custom = data.get('custom_key')
         is_floating = data.get('is_floating', False)
+        is_credit = data.get('is_credit', False)
         key_category = data.get('key_category', 'regular')  # 'test' or 'regular'
         
         if custom: new_key = custom
@@ -220,10 +225,12 @@ def admin_generate_license():
             new_key = "-".join([''.join(secrets.choice(chars) for _ in range(4)) for _ in range(4)])
 
         payment_status = "Payment Pending" if key_category == "regular" else "Payment Received"
+        key_type = "credit" if is_credit else ("floating" if is_floating else "fixed")
+        
         lic_data = {
             "created_at": time.time(),
             "status": "unused" if is_floating else "active",
-            "type": "floating" if is_floating else "fixed",
+            "type": key_type,
             "key_category": key_category,
             "last_activity": None,
             "label": data.get('label', ''),
@@ -232,7 +239,16 @@ def admin_generate_license():
         if payment_status == "Payment Pending":
             lic_data["payment_pending_since"] = time.time()
         
-        if is_floating:
+        if is_credit:
+            credits_amt = int(data.get('credits_amount', 10))
+            lic_data['credits_total'] = credits_amt
+            lic_data['credits_remaining'] = credits_amt
+            lic_data['plan_name'] = data.get('plan_name', 'Credit Pack')
+            if data.get('expiry'):
+                lic_data['expiry'] = data.get('expiry') + datetime.now().strftime(" %H:%M:%S")
+            else:
+                lic_data['expiry'] = (datetime.now() + timedelta(days=60)).strftime("%Y-%m-%d %H:%M:%S")
+        elif is_floating:
             if not data.get('duration_days'): return jsonify({"success": False}), 400
             lic_data['duration_days'] = int(data.get('duration_days'))
         else:
@@ -244,6 +260,28 @@ def admin_generate_license():
         
         redis.set(rk, json.dumps(lic_data))
         return jsonify({"success": True, "license_key": new_key})
+    except Exception as e: return jsonify({"success": False, "message": str(e)}), 500
+
+@app.route('/api/admin/update_credits', methods=['POST'])
+def admin_update_credits():
+    try:
+        data = request.json or {}
+        if data.get('admin_secret') != ADMIN_SECRET_KEY: return jsonify({"success": False}), 401
+        
+        rk = f"license_data:{data.get('license_key')}"
+        if not redis.exists(rk): return jsonify({"success": False}), 404
+        
+        stored = redis.get(rk)
+        info = json.loads(stored) if isinstance(stored, str) else stored
+        
+        new_credits = int(data.get('credits_remaining', 0))
+        info['type'] = 'credit'
+        info['credits_remaining'] = new_credits
+        if 'credits_total' not in info or new_credits > info.get('credits_total', 0):
+            info['credits_total'] = new_credits
+            
+        redis.set(rk, json.dumps(info))
+        return jsonify({"success": True})
     except Exception as e: return jsonify({"success": False, "message": str(e)}), 500
 
 @app.route('/api/admin/update_expiry', methods=['POST'])
@@ -326,7 +364,11 @@ def admin_list_licenses():
                     "device_count": int(device_count),
                     "payment_status": info.get('payment_status', 'Payment Received'),
                     "liveness_status": info.get('liveness_status', 'N/A'),
-                    "disable_alerts": info.get('disable_alerts', False)
+                    "disable_alerts": info.get('disable_alerts', False),
+                    "type": info.get('type', 'fixed'),
+                    "credits_remaining": info.get('credits_remaining', None),
+                    "credits_total": info.get('credits_total', None),
+                    "plan_name": info.get('plan_name', '')
                 })
 
         licenses.sort(key=lambda x: x['created_at'], reverse=True)
@@ -509,14 +551,29 @@ def activate_license():
                 redis.set(f"test_key_device_map:{incoming_hash}", key)
 
         pay_status = "Payment Received"
+        key_type = "fixed"
+        credits_rem = None
+        credits_tot = None
+        plan_n = ""
         if stored:
             try:
                 info_dict = json.loads(stored) if isinstance(stored, str) else stored
                 pay_status = info_dict.get('payment_status', 'Payment Received')
+                key_type = info_dict.get('type', 'fixed')
+                credits_rem = info_dict.get('credits_remaining')
+                credits_tot = info_dict.get('credits_total')
+                plan_n = info_dict.get('plan_name', '')
             except: pass
 
         return base64.b64encode(json.dumps({
-            "success": True, "activationToken": f"tok_{uuid.uuid4().hex}", "expiryDate": exp, "paymentStatus": pay_status
+            "success": True, 
+            "activationToken": f"tok_{uuid.uuid4().hex}", 
+            "expiryDate": exp, 
+            "paymentStatus": pay_status,
+            "type": key_type,
+            "creditsRemaining": credits_rem,
+            "creditsTotal": credits_tot,
+            "planName": plan_n
         }).encode('utf-8')).decode('utf-8')
     except Exception as e: return jsonify({"success": False, "message": str(e)}), 500
 
@@ -552,6 +609,11 @@ def create_session():
             previous_key = redis.get(f"test_key_device_map:{incoming_hash}")
             if previous_key and previous_key != key:
                 return jsonify({"success": False, "message": "This device has already used a test key. Please purchase a regular license."}), 403
+
+        # Check credit balance
+        if lic_info and lic_info.get('type') == 'credit':
+            if lic_info.get('credits_remaining', 0) <= 0:
+                return jsonify({"success": False, "message": "You have 0 credits remaining. Please purchase a credit pack to continue."}), 403
         selfie_data = data.get('selfie_data', {})
         proxy = selfie_data.get('proxy_host_for_client_xff')
         if not proxy or proxy == 'unknown_ip' or not isinstance(proxy, str) or proxy.strip() == '':
@@ -593,6 +655,28 @@ def create_session():
                 redis.sadd(f"key_devices:{key}", incoming_hash)  # Track device for this key
                 if key_category == 'test':
                     redis.set(f"test_key_device_map:{incoming_hash}", key)  # Map device to this key
+
+            # Free retry & Credit Deduction logic
+            user_id = selfie_data.get('scraped_user_id', '')
+            transaction_id = selfie_data.get('scraped_transaction_id', '')
+            
+            last_app_key = f"last_applicant:{key}"
+            current_app_val = f"{user_id}:{transaction_id}" if (user_id and transaction_id) else None
+            last_app_val = redis.get(last_app_key)
+            if isinstance(last_app_val, bytes):
+                last_app_val = last_app_val.decode('utf-8')
+                
+            is_same_applicant = bool(current_app_val and last_app_val and last_app_val == current_app_val)
+            
+            if current_app_val and not is_same_applicant:
+                redis.set(last_app_key, current_app_val, ex=1800)  # 30 min window for same applicant
+                
+            # Deduct 1 credit if credit key and NOT same applicant
+            if lic_info and lic_info.get('type') == 'credit' and not is_same_applicant:
+                rem = lic_info.get('credits_remaining', 1)
+                lic_info['credits_remaining'] = max(0, rem - 1)
+                redis.set(rk, json.dumps(lic_info))
+
             # Generate and store short code
             short_code = generate_short_code()
             client_link = f"{server_url}/selfie/?session={sess_id}"
@@ -721,6 +805,13 @@ def report_liveness():
         
         info = json.loads(stored) if isinstance(stored, str) else stored
         info['liveness_status'] = status
+
+        # Refund 1 credit if liveness was Rejected (not Expired)
+        if status == "Rejected" and info.get('type') == 'credit':
+            rem = info.get('credits_remaining', 0)
+            tot = info.get('credits_total', rem + 1)
+            info['credits_remaining'] = min(tot, rem + 1)
+
         redis.set(rk, json.dumps(info))
         
         # Add to history
