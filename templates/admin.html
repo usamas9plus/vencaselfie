@@ -205,9 +205,15 @@
         }
 
         button.action-btn {
-            padding: 6px 12px;
-            font-size: 0.7em;
-            margin-right: 5px;
+            padding: 6px 10px;
+            font-size: 0.75em;
+            margin-right: 0;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            vertical-align: middle;
+            line-height: 1;
+            height: 28px;
         }
 
         button.copy {
@@ -331,6 +337,7 @@
             font-size: 0.85em;
             text-transform: uppercase;
             letter-spacing: 1px;
+            white-space: nowrap;
         }
 
         th.sortable {
@@ -364,9 +371,11 @@
         }
 
         td {
-            padding: 15px 10px;
+            padding: 12px 10px;
             border-bottom: 1px solid #1a1a1a;
-            font-size: 0.95em;
+            font-size: 0.9em;
+            vertical-align: middle;
+            white-space: nowrap;
         }
 
         tr:hover td {
@@ -386,6 +395,11 @@
             font-size: 0.75em;
             font-weight: 600;
             text-transform: uppercase;
+            display: inline-flex;
+            align-items: center;
+            white-space: nowrap;
+            vertical-align: middle;
+            line-height: 1;
         }
 
         .badge-busy {
@@ -398,6 +412,13 @@
             background: rgba(0, 255, 0, 0.1);
             color: var(--green);
             border: 1px solid var(--green);
+        }
+
+        .cell-flex {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            white-space: nowrap;
         }
 
         /* Loading & Toast */
@@ -993,28 +1014,30 @@
                 row.innerHTML = `
                     <td><input type="checkbox" class="row-checkbox" data-key="${lic.key}" onclick="updateBulkActions()"></td>
                     <td class="key-text">${lic.key}</td>
-                    <td>${categoryBadge}</td>
-                    <td>${labelDisplay} <button class="action-btn edit" onclick="editLabel('${lic.key}', '${lic.label || ''}')" style="padding:2px 6px; font-size:0.65em">🏷️</button></td>
-                    <td>${paymentBadge} <button class="action-btn edit" onclick="editPaymentStatus('${lic.key}', '${lic.payment_status || 'Payment Received'}')" style="padding:2px 6px; font-size:0.65em">✏️</button></td>
+                    <td><div class="cell-flex">${categoryBadge}</div></td>
+                    <td><div class="cell-flex">${labelDisplay} <button class="action-btn edit" onclick="editLabel('${lic.key}', '${lic.label || ''}')" style="padding:2px 6px; font-size:0.65em">🏷️</button></div></td>
+                    <td><div class="cell-flex">${paymentBadge} <button class="action-btn edit" onclick="editPaymentStatus('${lic.key}', '${lic.payment_status || 'Payment Received'}')" style="padding:2px 6px; font-size:0.65em">✏️</button></div></td>
                     <td>${lic.expiry}</td>
-                    <td>${creditsDisplay}</td>
+                    <td><div class="cell-flex">${creditsDisplay}</div></td>
                     <td>${formatActivity(lic.last_activity)}</td>
                     <td>${lic.usage}</td>
                     <td>${lic.device_count || 0}</td>
                     <td>${livenessBadge}</td>
                     <td>${lic.locked ? '<span class="badge badge-busy">BUSY</span>' : '<span class="badge badge-idle">IDLE</span>'}</td>
                     <td>
-                        <button class="action-btn copy" onclick="copyKey('${lic.key}')">📋</button>
-                        <button class="action-btn edit" onclick="editExpiry('${lic.key}', '${lic.expiry}')">✏️</button>
-                        <button class="action-btn hist" onclick="viewHistory('${lic.key}')">📊</button>
-                        <button class="action-btn" onclick="toggleAlerts('${lic.key}')" 
-                                style="background: ${lic.disable_alerts ? '#331111' : '#113311'}; border-color: ${lic.disable_alerts ? 'var(--red)' : 'var(--green)'}; color: ${lic.disable_alerts ? 'var(--red)' : 'var(--green)'}; padding: 6px 12px; font-size: 0.7em; margin-right: 5px;"
-                                title="${lic.disable_alerts ? 'Enable Telegram Alerts' : 'Mute Telegram Alerts'}">
-                            ${lic.disable_alerts ? '🔕' : '🔔'}
-                        </button>
-                        ${lic.key_category === 'test' && lic.device_count > 0 ? `<button class="action-btn reset" onclick="clearTestDevice('${lic.key}')" title="Clear device restriction">🔓</button>` : ''}
-                        ${lic.locked ? `<button class="action-btn reset" onclick="resetLock('${lic.key}')">💀</button>` : ''}
-                        <button class="action-btn delete" onclick="deleteKey('${lic.key}')">🗑️</button>
+                        <div class="cell-flex" style="gap: 4px;">
+                            <button class="action-btn copy" onclick="copyKey('${lic.key}')" title="Copy Key">📋</button>
+                            <button class="action-btn edit" onclick="editExpiry('${lic.key}', '${lic.expiry}')" title="Edit Expiry">✏️</button>
+                            <button class="action-btn hist" onclick="viewHistory('${lic.key}')" title="View History">📊</button>
+                            <button class="action-btn" onclick="toggleAlerts('${lic.key}')" 
+                                    style="background: ${lic.disable_alerts ? '#331111' : '#113311'}; border-color: ${lic.disable_alerts ? 'var(--red)' : 'var(--green)'}; color: ${lic.disable_alerts ? 'var(--red)' : 'var(--green)'}; padding: 6px 10px; font-size: 0.75em;"
+                                    title="${lic.disable_alerts ? 'Enable Telegram Alerts' : 'Mute Telegram Alerts'}">
+                                ${lic.disable_alerts ? '🔕' : '🔔'}
+                            </button>
+                            ${lic.key_category === 'test' && lic.device_count > 0 ? `<button class="action-btn reset" onclick="clearTestDevice('${lic.key}')" title="Clear device restriction">🔓</button>` : ''}
+                            ${lic.locked ? `<button class="action-btn reset" onclick="resetLock('${lic.key}')" title="Unlock Key">💀</button>` : ''}
+                            <button class="action-btn delete" onclick="deleteKey('${lic.key}')" title="Delete Key">🗑️</button>
+                        </div>
                     </td>
                 `;
                 tbody.appendChild(row);
