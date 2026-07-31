@@ -89,15 +89,33 @@ def get_fingerprint_hash(fingerprint_data):
     canonical_str = json.dumps(fingerprint_data, sort_keys=True)
     return hashlib.sha256(canonical_str.encode('utf-8')).hexdigest()
 
+def parse_redis_json(val):
+    if not val:
+        return None
+    if isinstance(val, dict):
+        return val
+    if isinstance(val, bytes):
+        try:
+            val = val.decode('utf-8')
+        except Exception:
+            return None
+    if isinstance(val, str):
+        try:
+            return json.loads(val)
+        except Exception:
+            return None
+    return None
+
 def update_last_activity(license_key):
     if not redis: return
     try:
         rk = f"license_data:{license_key}"
         data_str = redis.get(rk)
         if data_str:
-            data = json.loads(data_str) if isinstance(data_str, str) else data_str
-            data['last_activity'] = time.time()
-            redis.set(rk, json.dumps(data))
+            data = parse_redis_json(data_str)
+            if data and isinstance(data, dict):
+                data['last_activity'] = time.time()
+                redis.set(rk, json.dumps(data))
     except: pass
 
 def _validate_license_logic(license_key):
@@ -110,33 +128,35 @@ def _validate_license_logic(license_key):
         stored = redis.get(rk)
         if stored:
             try:
-                info = json.loads(stored) if isinstance(stored, str) else stored
-                if info.get("key_category", "regular") == "regular":
-                    payment_status = info.get("payment_status", "Payment Received")
-                    if payment_status == "Payment Suspended":
-                        return False, "System has automatically suspended your key as your payment is still pending, Please make the payment to continue", None
-                    elif payment_status == "Payment Pending":
-                        pending_since = info.get("payment_pending_since", info.get("created_at", time.time()))
-                        if time.time() - pending_since > 3 * 24 * 60 * 60:
+                info = parse_redis_json(stored)
+                if info and isinstance(info, dict):
+                    if info.get("key_category", "regular") == "regular":
+                        payment_status = info.get("payment_status", "Payment Received")
+                        if payment_status == "Payment Suspended":
                             return False, "System has automatically suspended your key as your payment is still pending, Please make the payment to continue", None
+                        elif payment_status == "Payment Pending":
+                            pending_since = info.get("payment_pending_since", info.get("created_at", time.time()))
+                            if time.time() - pending_since > 3 * 24 * 60 * 60:
+                                return False, "System has automatically suspended your key as your payment is still pending, Please make the payment to continue", None
 
-                if info.get('type') == 'floating' and info.get('status') == 'unused':
-                    return True, "Ready to activate", None
-                if info.get('type') == 'credit':
-                    rem = info.get('credits_remaining', 0)
-                    if rem <= 0:
-                        return False, "You have 0 credits remaining. Please top up your account or switch to Unlimited VIP.", None
-                expiry_str = info.get("expiry")
-                if expiry_str:
-                    try:
-                        expiry_date = datetime.strptime(expiry_str, "%Y-%m-%d %H:%M:%S")
-                    except ValueError:
-                        expiry_date = datetime.strptime(expiry_str, "%Y-%m-%d")
-                    if datetime.now() > expiry_date: return False, "License key has expired. Please renew to continue", None
-                    expiry_timestamp_ms = expiry_date.timestamp() * 1000
-                else: expiry_timestamp_ms = (time.time() * 1000) + 31536000000
-                return True, "Valid", expiry_timestamp_ms
-            except: pass
+                    if info.get('type') == 'floating' and info.get('status') == 'unused':
+                        return True, "Ready to activate", None
+                    if info.get('type') == 'credit':
+                        rem = info.get('credits_remaining', 0)
+                        if rem <= 0:
+                            return False, "You have 0 credits remaining. Please top up your account or switch to Unlimited VIP.", None
+                    expiry_str = info.get("expiry")
+                    if expiry_str:
+                        try:
+                            expiry_date = datetime.strptime(expiry_str, "%Y-%m-%d %H:%M:%S")
+                        except ValueError:
+                            expiry_date = datetime.strptime(expiry_str, "%Y-%m-%d")
+                        if datetime.now() > expiry_date: return False, "License key has expired. Please renew to continue", None
+                        expiry_timestamp_ms = expiry_date.timestamp() * 1000
+                    else: expiry_timestamp_ms = (time.time() * 1000) + 31536000000
+                    return True, "Valid", expiry_timestamp_ms
+            except Exception as e:
+                print(f"[ERROR] validate_license_logic error: {e}")
 
     try: allowed_keys = json.loads(ALLOWED_LICENSE_KEYS_JSON)
     except: allowed_keys = {}
@@ -518,15 +538,17 @@ def activate_license():
         rk = f"license_data:{key}"
         stored = redis.get(rk) if redis else None
         key_category = 'regular'
+        info = parse_redis_json(stored)
         
-        if stored:
-            info = json.loads(stored) if isinstance(stored, str) else stored
+        if info and isinstance(info, dict):
             key_category = info.get('key_category', 'regular')
             
             # Test key device restriction check during activation
             # Check if device used a DIFFERENT test key before
             if key_category == 'test' and incoming_hash:
                 previous_key = redis.get(f"test_key_device_map:{incoming_hash}")
+                if isinstance(previous_key, bytes):
+                    previous_key = previous_key.decode('utf-8')
                 if previous_key and previous_key != key:
                     return jsonify({"success": False, "message": "Sorry, you have previously used a Test Key, If you liked the Vecna Selfie please consider purchasing!"}), 403
             
@@ -555,15 +577,12 @@ def activate_license():
         credits_rem = None
         credits_tot = None
         plan_n = ""
-        if stored:
-            try:
-                info_dict = json.loads(stored) if isinstance(stored, str) else stored
-                pay_status = info_dict.get('payment_status', 'Payment Received')
-                key_type = info_dict.get('type', 'fixed')
-                credits_rem = info_dict.get('credits_remaining')
-                credits_tot = info_dict.get('credits_total')
-                plan_n = info_dict.get('plan_name', '')
-            except: pass
+        if info and isinstance(info, dict):
+            pay_status = info.get('payment_status', 'Payment Received')
+            key_type = info.get('type', 'fixed')
+            credits_rem = info.get('credits_remaining')
+            credits_tot = info.get('credits_total')
+            plan_n = info.get('plan_name', '')
 
         return base64.b64encode(json.dumps({
             "success": True, 
@@ -597,21 +616,22 @@ def create_session():
         rk = f"license_data:{key}"
         lic_data = redis.get(rk)
         key_category = 'regular'  # Default for backward compatibility
-        lic_info = None
-        if lic_data:
-            lic_info = json.loads(lic_data) if isinstance(lic_data, str) else lic_data
+        lic_info = parse_redis_json(lic_data)
+        if lic_info and isinstance(lic_info, dict):
             key_category = lic_info.get('key_category', 'regular')
-        disable_alerts = lic_info.get('disable_alerts', False) if lic_info else False
+        disable_alerts = lic_info.get('disable_alerts', False) if (lic_info and isinstance(lic_info, dict)) else False
         
         # Test key device restriction check
         # Check if device used a DIFFERENT test key before
         if key_category == 'test' and incoming_hash:
             previous_key = redis.get(f"test_key_device_map:{incoming_hash}")
+            if isinstance(previous_key, bytes):
+                previous_key = previous_key.decode('utf-8')
             if previous_key and previous_key != key:
                 return jsonify({"success": False, "message": "This device has already used a test key. Please purchase a regular license."}), 403
 
         # Check credit balance
-        if lic_info and lic_info.get('type') == 'credit':
+        if lic_info and isinstance(lic_info, dict) and lic_info.get('type') == 'credit':
             if lic_info.get('credits_remaining', 0) <= 0:
                 return jsonify({"success": False, "message": "You have 0 credits remaining. Please purchase a credit pack to continue."}), 403
         selfie_data = data.get('selfie_data', {})
@@ -673,7 +693,7 @@ def create_session():
                 redis.set(last_app_key, current_app_val, ex=1800)  # 30 min window for same applicant
                 
             # Deduct 1 credit if credit key, NOT same applicant, and NOT a test link
-            if lic_info and lic_info.get('type') == 'credit' and not is_same_applicant and not is_test_link:
+            if lic_info and isinstance(lic_info, dict) and lic_info.get('type') == 'credit' and not is_same_applicant and not is_test_link:
                 rem = lic_info.get('credits_remaining', 1)
                 lic_info['credits_remaining'] = max(0, rem - 1)
                 redis.set(rk, json.dumps(lic_info))
