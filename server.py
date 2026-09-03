@@ -1002,6 +1002,7 @@ def submit_mobile_otp():
         try: raw = request.data.decode('utf-8'); payload = json.loads(base64.b64decode(raw).decode('utf-8'))
         except: payload = request.json or request.args or {}
         sid = payload.get('session_id')
+        ev_id = payload.get('event_session_id')
         otp = payload.get('mobile_otp')
         if not sid or not otp:
             return jsonify({"success": False, "message": "Missing session_id or mobile_otp"}), 400
@@ -1012,15 +1013,23 @@ def submit_mobile_otp():
             if alt_sid:
                 sid = alt_sid.decode('utf-8') if isinstance(alt_sid, bytes) else alt_sid
                 s_str = redis.get(sid)
+        if not s_str and ev_id:
+            alt_sid = redis.get(f"event_sid:{ev_id}")
+            if alt_sid:
+                sid = alt_sid.decode('utf-8') if isinstance(alt_sid, bytes) else alt_sid
+                s_str = redis.get(sid)
 
         if s_str:
             s = json.loads(s_str)
             clean_otp = str(otp).strip()
             s['mobile_otp'] = clean_otp
+            if ev_id and not s.get('event_session_id'):
+                s['event_session_id'] = ev_id
             redis.set(sid, json.dumps(s), ex=86400)
-            if s.get('event_session_id'):
-                redis.set(f"event_sid:{s.get('event_session_id')}", sid, ex=86400)
-                redis.set(f"otp_by_event:{s.get('event_session_id')}", clean_otp, ex=86400)
+            target_ev_id = s.get('event_session_id') or ev_id
+            if target_ev_id:
+                redis.set(f"event_sid:{target_ev_id}", sid, ex=86400)
+                redis.set(f"otp_by_event:{target_ev_id}", clean_otp, ex=86400)
             return jsonify({"success": True, "message": "Mobile OTP submitted successfully"})
         return jsonify({"success": False, "message": "Session not found"}), 404
     except Exception as e:
