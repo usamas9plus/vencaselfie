@@ -1067,6 +1067,50 @@ def check_session_status():
         }).encode('utf-8')).decode('utf-8')
     except Exception as e: return jsonify({"success": False, "message": str(e)}), 500
 
+@app.route('/api/get_mobile_otp', methods=['POST', 'GET'])
+@app.route('/api/get_mobile_otp.php', methods=['POST', 'GET'])
+def get_mobile_otp():
+    try:
+        payload = request.get_json(silent=True) or {}
+        if not payload:
+            try:
+                raw = request.data.decode('utf-8')
+                try: payload = json.loads(base64.b64decode(raw).decode('utf-8'))
+                except: payload = json.loads(raw)
+            except: payload = request.args.to_dict() if request.args else {}
+        
+        sid = payload.get('session_id') or payload.get('event_session_id') or request.args.get('session_id') or request.args.get('event_session_id')
+        if not sid:
+            return jsonify({"success": False, "message": "Missing session_id"}), 400
+        
+        # 1. Check direct event OTP key
+        ev_otp = redis.get(f"otp_by_event:{sid}")
+        if ev_otp:
+            clean = ev_otp.decode('utf-8') if isinstance(ev_otp, bytes) else str(ev_otp)
+            return jsonify({"success": True, "mobile_otp": clean.strip()})
+
+        # 2. Check session key in Redis
+        s_str = redis.get(sid)
+        if not s_str:
+            alt_sid = redis.get(f"event_sid:{sid}")
+            if alt_sid:
+                sid_str = alt_sid.decode('utf-8') if isinstance(alt_sid, bytes) else str(alt_sid)
+                s_str = redis.get(sid_str)
+        
+        if s_str:
+            s = json.loads(s_str)
+            otp = s.get('mobile_otp')
+            if not otp and s.get('event_session_id'):
+                ev2 = redis.get(f"otp_by_event:{s.get('event_session_id')}")
+                if ev2:
+                    otp = ev2.decode('utf-8') if isinstance(ev2, bytes) else str(ev2)
+            if otp:
+                return jsonify({"success": True, "mobile_otp": str(otp).strip()})
+        
+        return jsonify({"success": False, "message": "OTP not found yet"}), 404
+    except Exception as e:
+        return jsonify({"success": False, "message": str(e)}), 500
+
 @app.route('/selfie/')
 def selfie_page(): 
     return render_template('selfie.html')
