@@ -649,8 +649,8 @@ def create_session():
             "user_id": selfie_data.get('scraped_user_id'),
             "transaction_id": selfie_data.get('scraped_transaction_id'),
             "proxy": proxy,
-            "target_domain": selfie_data.get('target_domain'),
-            "target_path": selfie_data.get('target_path'),
+            "target_domain": selfie_data.get('target_domain') or "mauritania.blsspainglobal.com",
+            "target_path": selfie_data.get('target_path') or "/Global/",
             "selected_kendo_city": selfie_data.get('selected_kendo_city'),
             "selected_kendo_visa_sub_type": selfie_data.get('selected_kendo_visa_sub_type'),
             "selected_kendo_visa_type": selfie_data.get('selected_kendo_visa_type'),
@@ -705,8 +705,8 @@ def create_session():
             # Construct augmented link with encoded data for short code
             user_id = selfie_data.get('scraped_user_id', '')
             transaction_id = selfie_data.get('scraped_transaction_id', '')
-            target_domain = selfie_data.get('target_domain', 'appointment.thespainvisa.com')
-            target_path = selfie_data.get('target_path', '/Global/')
+            target_domain = selfie_data.get('target_domain') or 'mauritania.blsspainglobal.com'
+            target_path = selfie_data.get('target_path') or '/Global/'
             
             # Encode the data for the augmented link
             import urllib.parse
@@ -762,8 +762,8 @@ def create_session():
                 # Construct augmented link with encoded data for short code
                 user_id = selfie_data.get('scraped_user_id', '')
                 transaction_id = selfie_data.get('scraped_transaction_id', '')
-                target_domain = selfie_data.get('target_domain', 'appointment.thespainvisa.com')
-                target_path = selfie_data.get('target_path', '/Global/')
+                target_domain = selfie_data.get('target_domain') or 'mauritania.blsspainglobal.com'
+                target_path = selfie_data.get('target_path') or '/Global/'
                 
                 # Encode the data for the augmented link
                 import urllib.parse
