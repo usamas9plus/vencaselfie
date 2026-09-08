@@ -1,0 +1,12 @@
+[
+  {
+    "relation": ["delegate_permission/common.handle_all_urls"],
+    "target": {
+      "namespace": "android_app",
+      "package_name": "com.vecnaselfie.app",
+      "sha256_cert_fingerprints": [
+        "7B:07:85:C8:55:B5:FA:73:AD:61:EC:87:F4:F6:7A:D5:8B:C0:AF:77:54:8C:96:A2:E0:7C:13:C6:4E:24:F6:AB"
+      ]
+    }
+  }
+]
