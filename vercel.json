@@ -1,16 +1,26 @@
 {
     "builds": [
         {
+            "src": ".well-known/**",
+            "use": "@vercel/static"
+        },
+        {
             "src": "server.py",
             "use": "@vercel/python"
         }
     ],
     "routes": [
         {
+            "src": "/.well-known/assetlinks.json",
+            "dest": "/.well-known/assetlinks.json",
+            "headers": {
+                "Content-Type": "application/json",
+                "Access-Control-Allow-Origin": "*"
+            }
+        },
+        {
             "src": "/(.*)",
             "dest": "server.py"
         }
     ]
 }
-
-
