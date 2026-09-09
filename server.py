@@ -811,8 +811,11 @@ def create_session():
 @app.route('/api/report_liveness', methods=['POST'])
 def report_liveness():
     try:
-        try: raw = request.data.decode('utf-8'); data = json.loads(base64.b64decode(raw).decode('utf-8'))
-        except: data = request.json or {}
+        try:
+            raw = request.data.decode('utf-8')
+            data = json.loads(base64.b64decode(raw).decode('utf-8'))
+        except:
+            data = request.get_json(silent=True) or request.form.to_dict() or {}
         
         key = data.get('license_key')
         status = data.get('status')
