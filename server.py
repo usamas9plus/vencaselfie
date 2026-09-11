@@ -186,7 +186,33 @@ def serve_static(filename):
 
 @app.route('/version')
 def version():
-    return jsonify({"version": "2.6.1", "features": ["scan_fix", "activity_tracking"]})
+    # Android self-update info. The values are set from the Admin panel and stored in Redis;
+    # the defaults below are used only if Redis is unset/unavailable. The app compares its own
+    # installed versionCode against "versionCode" and prompts to update when the server is higher.
+    version_code = 3
+    version_name = "1.2"
+    apk_url = "https://vecnaselfie.com/VecnaClient.apk"
+    try:
+        if redis is not None:
+            vc = redis.get("app_version_code")
+            if vc is not None and str(vc).strip() != "":
+                version_code = int(vc)
+            vn = redis.get("app_version_name")
+            if vn:
+                version_name = str(vn)
+            au = redis.get("app_apk_url")
+            if au:
+                apk_url = str(au)
+    except Exception:
+        pass
+    return jsonify({
+        "version": "2.6.1",
+        "features": ["scan_fix", "activity_tracking"],
+        "versionCode": version_code,
+        "versionName": version_name,
+        "apkUrl": apk_url,
+        "mandatory": False
+    })
 
 @app.route('/robots.txt')
 def robots():
@@ -500,6 +526,31 @@ def get_ticker_message():
         msg = redis.get("ticker_message")
         return jsonify({"success": True, "message": msg if msg else ""})
     except: return jsonify({"success": False, "message": ""})
+
+@app.route('/api/admin/set_app_version', methods=['POST'])
+def admin_set_app_version():
+    """Set the Android app version advertised by /version (self-update prompt)."""
+    try:
+        data = request.json or {}
+        if data.get('admin_secret') != ADMIN_SECRET_KEY: return jsonify({"success": False}), 401
+
+        try:
+            version_code = int(data.get('version_code'))
+        except (TypeError, ValueError):
+            return jsonify({"success": False, "message": "version_code must be an integer"}), 400
+
+        redis.set("app_version_code", str(version_code))
+
+        version_name = data.get('version_name')
+        if version_name is not None and str(version_name).strip() != "":
+            redis.set("app_version_name", str(version_name).strip())
+
+        apk_url = data.get('apk_url')
+        if apk_url is not None and str(apk_url).strip() != "":
+            redis.set("app_apk_url", str(apk_url).strip())
+
+        return jsonify({"success": True, "version_code": version_code})
+    except Exception as e: return jsonify({"success": False, "message": str(e)}), 500
 
 @app.route('/api/admin/clear_test_device', methods=['POST'])
 def admin_clear_test_device():
