@@ -725,6 +725,7 @@ def create_session():
 
         if redis.set(lock_key, sess_id, nx=True, ex=300):
             redis.set(sess_id, json.dumps(sess_data), ex=86400)
+            redis.set(f"last_session:{key}", sess_id, ex=3600)
             redis.incr(f"usage_count:{key}")
             redis.lpush(f"usage_history:{key}", json.dumps({"time": datetime.now().strftime("%Y-%m-%d %H:%M:%S"), "ip": request.remote_addr}))
             redis.ltrim(f"usage_history:{key}", 0, 49)
@@ -899,6 +900,19 @@ def report_liveness():
 
         redis.set(rk, json.dumps(info))
         
+        # Stamp the client's session so the Android app can poll the liveness verdict
+        try:
+            _sid = redis.get(f"last_session:{key}") or redis.get(f"active_session_lock:{key}")
+            if _sid:
+                _sid = _sid.decode('utf-8') if isinstance(_sid, bytes) else str(_sid)
+                _sstr = redis.get(_sid)
+                if _sstr:
+                    _so = json.loads(_sstr)
+                    _so['liveness_result'] = status
+                    redis.set(_sid, json.dumps(_so), ex=86400)
+        except Exception:
+            pass
+
         # Add to history
         hist_data = {
             "time": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
@@ -1126,7 +1140,8 @@ def check_session_status():
                 "status": s.get('status'),
                 "event_session_id": s.get('event_session_id'),
                 "mobile_otp": otp,
-                "otp_requested": bool(s.get('otp_requested', False))
+                "otp_requested": bool(s.get('otp_requested', False)),
+                "liveness_result": s.get('liveness_result', "")
             }
         }).encode('utf-8')).decode('utf-8')
     except Exception as e: return jsonify({"success": False, "message": str(e)}), 500
