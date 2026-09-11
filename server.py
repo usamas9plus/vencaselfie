@@ -814,6 +814,7 @@ def create_session():
             if l_str and json.loads(l_str).get('fingerprint_hash') == incoming_hash:
                 redis.set(sess_id, json.dumps(sess_data), ex=86400)
                 redis.set(lock_key, sess_id, ex=300)
+                redis.set(f"last_session:{key}", sess_id, ex=3600)
                 
                 # Generate and store short code
                 short_code = generate_short_code()
@@ -1066,6 +1067,8 @@ def submit_liveness():
             if event_id:
                 redis.set(f"event_sid:{event_id}", sid, ex=86400)
             key = s.get('license_key')
+            if key:
+                redis.set(f"last_session:{key}", sid, ex=3600)
             if key and redis.get(f"active_session_lock:{key}") == sid: redis.delete(f"active_session_lock:{key}")
             redis.set(sid, json.dumps(s), ex=86400)
         return jsonify({"success": True})
