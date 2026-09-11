@@ -192,6 +192,7 @@ def version():
     version_code = 3
     version_name = "1.2"
     apk_url = "https://vecnaselfie.com/VecnaClient.apk"
+    mandatory = False
     try:
         if redis is not None:
             vc = redis.get("app_version_code")
@@ -203,6 +204,9 @@ def version():
             au = redis.get("app_apk_url")
             if au:
                 apk_url = str(au)
+            mu = redis.get("app_update_mandatory")
+            if mu is not None:
+                mandatory = str(mu).strip().lower() in ("1", "true", "yes")
     except Exception:
         pass
     return jsonify({
@@ -211,7 +215,7 @@ def version():
         "versionCode": version_code,
         "versionName": version_name,
         "apkUrl": apk_url,
-        "mandatory": False
+        "mandatory": mandatory
     })
 
 @app.route('/robots.txt')
@@ -549,7 +553,11 @@ def admin_set_app_version():
         if apk_url is not None and str(apk_url).strip() != "":
             redis.set("app_apk_url", str(apk_url).strip())
 
-        return jsonify({"success": True, "version_code": version_code})
+        mandatory = data.get('mandatory')
+        is_mandatory = mandatory is True or str(mandatory).strip().lower() in ("1", "true", "yes")
+        redis.set("app_update_mandatory", "1" if is_mandatory else "0")
+
+        return jsonify({"success": True, "version_code": version_code, "mandatory": is_mandatory})
     except Exception as e: return jsonify({"success": False, "message": str(e)}), 500
 
 @app.route('/api/admin/clear_test_device', methods=['POST'])
