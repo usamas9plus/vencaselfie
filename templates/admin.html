@@ -666,6 +666,14 @@
             <button onclick="setTickerMessage()">💾 Set Ticker</button>
         </div>
 
+        <!-- App Version (Android self-update) -->
+        <div class="setup-bar" style="margin-top: -20px;">
+            <input type="number" id="appVersionCode" placeholder="🔢 Version Code (e.g. 4)">
+            <input type="text" id="appVersionName" placeholder="🏷️ Version Name (e.g. 1.3)">
+            <input type="text" id="appApkUrl" placeholder="🔗 APK URL (optional)">
+            <button onclick="setAppVersion()">💾 Set App Version</button>
+        </div>
+
         <!-- Generator -->
         <div class="generator-card">
             <h3>⚡ Generate Licenses</h3>
@@ -844,6 +852,7 @@
         async function connect() {
             saveCredentials();
             await fetchAllData();
+            loadAppVersion();
         }
 
         async function setTickerMessage() {
@@ -868,6 +877,46 @@
             } catch (e) {
                 alert('Connection Error');
             }
+        }
+
+        async function setAppVersion() {
+            const secret = getEl('adminSecret').value;
+            const url = getEl('serverUrl').value.replace(/\/$/, '');
+            const versionCode = getEl('appVersionCode').value.trim();
+            const versionName = getEl('appVersionName').value.trim();
+            const apkUrl = getEl('appApkUrl').value.trim();
+
+            if (!secret) return alert("Admin secret required");
+            if (!versionCode || isNaN(parseInt(versionCode))) return alert("Enter a numeric version code");
+
+            try {
+                const res = await fetch(`${url}/api/admin/set_app_version`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ admin_secret: secret, version_code: parseInt(versionCode), version_name: versionName, apk_url: apkUrl })
+                });
+                const data = await res.json();
+                if (data.success) {
+                    showToast('App Version Updated (code ' + data.version_code + ')');
+                } else {
+                    alert('Error: ' + (data.message || 'failed'));
+                }
+            } catch (e) {
+                alert('Connection Error');
+            }
+        }
+
+        async function loadAppVersion() {
+            const url = getEl('serverUrl').value.replace(/\/$/, '');
+            try {
+                const res = await fetch(`${url}/version`);
+                const data = await res.json();
+                if (data) {
+                    if (data.versionCode !== undefined && !getEl('appVersionCode').value) getEl('appVersionCode').value = data.versionCode;
+                    if (data.versionName !== undefined && !getEl('appVersionName').value) getEl('appVersionName').value = data.versionName;
+                    if (data.apkUrl !== undefined && !getEl('appApkUrl').value) getEl('appApkUrl').value = data.apkUrl;
+                }
+            } catch (e) {}
         }
 
         async function startBatchGeneration() {
