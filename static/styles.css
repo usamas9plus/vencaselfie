@@ -968,3 +968,77 @@ footer a:hover {
         text-align: center;
     }
 }
+/* ===== Multi-plan subscription grid ===== */
+.pricing-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+    gap: 24px;
+    max-width: 1120px;
+    margin: 0 auto;
+    align-items: stretch;
+}
+.pricing-grid .pricing-card {
+    max-width: none;
+    margin: 0;
+    padding: 34px 26px;
+    display: flex;
+    flex-direction: column;
+    text-align: center;
+}
+.pricing-grid .price {
+    font-size: 2.5em;
+    margin-bottom: 4px;
+}
+.pricing-grid .price .cur {
+    font-size: 0.35em;
+    color: var(--text-muted);
+    font-weight: 700;
+    vertical-align: middle;
+    margin-right: 5px;
+    letter-spacing: 1px;
+}
+.plan-tag {
+    align-self: center;
+    font-family: 'Orbitron', sans-serif;
+    font-weight: 900;
+    font-size: 0.6em;
+    letter-spacing: 1px;
+    padding: 5px 14px;
+    border-radius: 20px;
+    margin-bottom: 14px;
+    text-transform: uppercase;
+    white-space: nowrap;
+}
+.starter-tag { background: rgba(255, 255, 255, 0.12); color: #d5d5d5; }
+.popular-tag { background: #ffcc00; color: #000; }
+.best-value-tag { background: #00d2ff; color: #000; }
+.vip-tag { background: #b46bff; color: #000; }
+.plan-credits {
+    font-family: 'Orbitron', sans-serif;
+    font-size: 0.78em;
+    letter-spacing: 2px;
+    color: #00ff88;
+    margin-bottom: 12px;
+    text-transform: uppercase;
+}
+.pricing-grid .pricing-features {
+    margin-bottom: 24px;
+    flex: 1 0 auto;
+    text-align: left;
+}
+.pricing-grid .pricing-features li {
+    padding: 10px 0;
+    font-size: 0.9em;
+    gap: 10px;
+}
+.pricing-grid .btn-buy {
+    padding: 14px;
+    font-size: 1.05em;
+    animation: none;
+    margin-top: auto;
+}
+.pricing-card.popular { border-color: #ffcc00; box-shadow: 0 0 45px rgba(255, 200, 0, 0.22); }
+.pricing-card.best-value { border-color: #00d2ff; box-shadow: 0 0 45px rgba(0, 210, 255, 0.22); }
+.pricing-card.vip { border-color: #b46bff; box-shadow: 0 0 45px rgba(180, 107, 255, 0.22); }
+.pricing-trial { text-align: center; margin-top: 34px; }
+.pricing-trial .btn { display: inline-block; width: auto; padding: 14px 30px; }
