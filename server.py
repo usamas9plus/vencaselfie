@@ -797,6 +797,7 @@ def create_session():
                         f"━━━━━━━━━━━━━━━━━━━━\n"
                         f"🔑 <b>Key:</b> <code>{mask_license_key(key)}</code>\n"
                         f"👤 <b>User:</b> <code>{user_id}</code>\n"
+                        f"🌍 <b>Country:</b> {'ITALY 🇮🇹' if target_domain and 'theitalyvisa.com' in target_domain else 'SPAIN 🇪🇸'}\n"
                         f"{details}"
                         f"🕒 <b>Time:</b> <code>{now_pkt}</code>\n"
                         f"━━━━━━━━━━━━━━━━━━━━"
@@ -855,6 +856,7 @@ def create_session():
                             f"━━━━━━━━━━━━━━━━━━━━\n"
                             f"🔑 <b>Key:</b> <code>{mask_license_key(key)}</code>\n"
                             f"👤 <b>User:</b> <code>{user_id}</code>\n"
+                            f"🌍 <b>Country:</b> {'ITALY 🇮🇹' if target_domain and 'theitalyvisa.com' in target_domain else 'SPAIN 🇪🇸'}\n"
                             f"{details}"
                             f"🕒 <b>Time:</b> <code>{now_pkt}</code>\n"
                             f"━━━━━━━━━━━━━━━━━━━━"
@@ -941,6 +943,7 @@ def report_liveness():
                 k_city = None
                 k_sub = None
                 k_type = None
+                k_domain = None
                 
                 # Active session ID
                 sess_id = redis.get(f"active_session_lock:{key}")
@@ -952,6 +955,7 @@ def report_liveness():
                             k_city = sess_obj.get("selected_kendo_city")
                             k_sub = sess_obj.get("selected_kendo_visa_sub_type")
                             k_type = sess_obj.get("selected_kendo_visa_type")
+                            k_domain = sess_obj.get("target_domain")
                         except: pass
                 
                 details = ""
@@ -963,6 +967,7 @@ def report_liveness():
                     f"<b>{status_icon} LIVENESS RESULT: {title}</b>\n"
                     f"━━━━━━━━━━━━━━━━━━━━\n"
                     f"🔑 <b>Key:</b> <code>{mask_license_key(key)}</code>\n"
+                    f"🌍 <b>Country:</b> {'ITALY 🇮🇹' if k_domain and 'theitalyvisa.com' in k_domain else 'SPAIN 🇪🇸'}\n"
                     f"{details}"
                     f"🕒 <b>Time:</b> <code>{get_pkt_time()}</code>\n"
                     f"━━━━━━━━━━━━━━━━━━━━"
