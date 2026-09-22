@@ -945,9 +945,13 @@ def report_liveness():
                 k_type = None
                 k_domain = None
                 
-                # Active session ID
-                sess_id = redis.get(f"active_session_lock:{key}")
+                # Resolve the session the SAME resilient way used for stamping above:
+                # active_session_lock is often already cleared by the time the result
+                # arrives, so prefer last_session and decode bytes. Using only
+                # active_session_lock left k_domain=None -> country wrongly showed SPAIN.
+                sess_id = redis.get(f"last_session:{key}") or redis.get(f"active_session_lock:{key}")
                 if sess_id:
+                    sess_id = sess_id.decode('utf-8') if isinstance(sess_id, bytes) else str(sess_id)
                     sess_str = redis.get(sess_id)
                     if sess_str:
                         try:
